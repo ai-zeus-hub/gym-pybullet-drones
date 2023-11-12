@@ -46,7 +46,7 @@ def run(
     env = TrackingAviary(gui=gui, record=record_video)
     logger = Logger(
         logging_freq_hz=int(env.CTRL_FREQ),
-        num_drones=1,
+        num_drones=2,
         output_folder=output_folder,
         colab=colab,
     )
@@ -65,7 +65,7 @@ def run(
             drone=tracking_drone,
             timestamp=i / env.CTRL_FREQ,
             state=np.hstack([obs_tracking_drone[0:3],
-                             np.zeros(4), # quaternions
+                             np.zeros(4),  # quaternions? ignored by logger
                              obs_tracking_drone[3:15],
                              np.resize(tracking_actions_as_rpms, 4)]),
             control=np.zeros(12),
@@ -77,7 +77,7 @@ def run(
             drone=tracked_drone,
             timestamp=i / env.CTRL_FREQ,
             state=np.hstack([obs_tracked_drone[0:3],
-                             np.zeros(4), # quaternions
+                             np.zeros(4),  # quaternions? ignored by logger
                              obs_tracked_drone[3:15],
                              np.resize(tracked_actions_as_rpms, 4)]),
             control=np.zeros(12),
