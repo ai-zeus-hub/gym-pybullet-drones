@@ -15,7 +15,7 @@ import gymnasium as gym
 import numpy as np
 from stable_baselines3 import PPO
 
-from gym_pybullet_drones.envs.single_agent_rl.HoverAviary import HoverAviary
+from gym_pybullet_drones.envs.multi_agent_rl.TrackingAviary import TrackingAviary
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import str2bool, sync
 
@@ -33,17 +33,17 @@ def run(
     record_video: bool = DEFAULT_RECORD_VIDEO,
 ):
     # Check the environment's spaces
-    env = gym.make("hover-aviary-v0")
+    env = gym.make("tracking-aviary-v0")
     print("[INFO] Beginning tracking algorithm")
     print("[INFO] Action space:", env.action_space)
     print("[INFO] Observation space:", env.observation_space)
 
     # Train the model
     model = PPO("MlpPolicy", env, verbose=1)
-    model.learn(total_timesteps=40000)  # Typically not enough
+    model.learn(total_timesteps=5000)  # Typically not enough
 
     # Show (and record a video of) the model's performance
-    env = HoverAviary(gui=gui, record=record_video)
+    env = TrackingAviary(gui=gui, record=record_video)
     logger = Logger(
         logging_freq_hz=int(env.CTRL_FREQ),
         num_drones=1,
