@@ -559,6 +559,12 @@ class BaseAviary(gym.Env):
             Check the only line in this method and `_updateAndStoreKinematicInformation()`
             to understand its format.
 
+              0-2: x, y, z
+              3-6: quat's
+              7-9: roll, pitch, yaw
+            10-12: vx, vy, vz
+            13-15: wx, wy, wz
+            16-19: last action
         """
         state = np.hstack([self.pos[nth_drone, :], self.quat[nth_drone, :], self.rpy[nth_drone, :],
                            self.vel[nth_drone, :], self.ang_v[nth_drone, :], self.last_clipped_action[nth_drone, :]])

@@ -2,13 +2,13 @@ import numpy as np
 
 from gym_pybullet_drones.envs.single_agent_rl.BaseSingleAgentAviary import (
     ActionType,
-    BaseSingleAgentAviary,
     ObservationType,
 )
+from gym_pybullet_drones.envs.multi_agent_rl.BaseMultiagentAviary import BaseMultiagentAviary
 from gym_pybullet_drones.utils.enums import DroneModel, Physics
 
 
-class TrackingAviary(BaseSingleAgentAviary):
+class TrackingAviary(BaseMultiagentAviary):
     """Single agent RL problem: hover at position."""
 
     ################################################################################
@@ -58,6 +58,7 @@ class TrackingAviary(BaseSingleAgentAviary):
             drone_model=drone_model,
             initial_xyzs=initial_xyzs,
             initial_rpys=initial_rpys,
+            # num_drones=1,
             physics=physics,
             pyb_freq=pyb_freq,
             ctrl_freq=ctrl_freq,
@@ -78,6 +79,8 @@ class TrackingAviary(BaseSingleAgentAviary):
             The reward.
 
         """
+
+        ## TODO: ajr - Reward based upon distance
         state = self._getDroneStateVector(0)
         return -1 * np.linalg.norm(np.array([0, 0, 1]) - state[0:3]) ** 2
 
@@ -132,18 +135,31 @@ class TrackingAviary(BaseSingleAgentAviary):
     ################################################################################
 
     def _clipAndNormalizeState(self, state):
-        """Normalizes a drone's state to the [-1,1] range.
+        """Normalizes a single drone's state to the [-1,1] range.
 
         Parameters
         ----------
         state : ndarray
             (20,)-shaped array of floats containing the non-normalized state of a single drone.
 
+              0-2: x, y, z
+              3-6: quat's
+              7-9: roll, pitch, yaw
+            10-12: vx, vy, vz
+            13-15: wx, wy, wz
+            16-19: last action
+
         Returns
         -------
         ndarray
             (20,)-shaped array of floats containing the normalized state of a single drone.
 
+              0-2: x, y, z -- normalized to the max possible distance (for that axis) per episode
+              3-6: quat's -- unmodified
+              7-9: roll, pitch, yaw -- normalized to 2*pi
+            10-12: vx, vy, vz -- normalized to 3, 3, 1
+            13-15: wx, wy, wz -- normalized angular velocity
+            16-19: last action -- unmodified
         """
         MAX_LIN_VEL_XY = 3
         MAX_LIN_VEL_Z = 1

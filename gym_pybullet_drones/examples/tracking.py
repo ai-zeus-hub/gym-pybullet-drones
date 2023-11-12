@@ -40,7 +40,7 @@ def run(
 
     # Train the model
     model = PPO("MlpPolicy", env, verbose=1)
-    model.learn(total_timesteps=5000)  # Typically not enough
+    model.learn(total_timesteps=10000)  # Typically not enough
 
     # Show (and record a video of) the model's performance
     env = TrackingAviary(gui=gui, record=record_video)
@@ -52,15 +52,34 @@ def run(
     )
     obs, info = env.reset(seed=42, options={})
     start = time.time()
+    tracking_drone = 0
+    tracked_drone = 1
     for i in range(3 * env.CTRL_FREQ):
         action, _states = model.predict(obs, deterministic=True)
         obs, reward, terminated, truncated, info = env.step(action)
 
-        actions_as_rpms = env._preprocessAction(action)
+        # For plotting purposes, we are primarily interested in the tracking drone
+        obs_tracking_drone = obs[tracking_drone]
+        tracking_actions_as_rpms = env._preprocessAction(action)[tracking_drone]
         logger.log(
-            drone=0,
+            drone=tracking_drone,
             timestamp=i / env.CTRL_FREQ,
-            state=np.hstack([obs[0:3], np.zeros(4), obs[3:15], np.resize(actions_as_rpms, 4)]),
+            state=np.hstack([obs_tracking_drone[0:3],
+                             np.zeros(4), # quaternions
+                             obs_tracking_drone[3:15],
+                             np.resize(tracking_actions_as_rpms, 4)]),
+            control=np.zeros(12),
+        )
+
+        obs_tracked_drone = obs[tracked_drone]
+        tracked_actions_as_rpms = env._preprocessAction(action)[tracked_drone]
+        logger.log(
+            drone=tracked_drone,
+            timestamp=i / env.CTRL_FREQ,
+            state=np.hstack([obs_tracked_drone[0:3],
+                             np.zeros(4), # quaternions
+                             obs_tracked_drone[3:15],
+                             np.resize(tracked_actions_as_rpms, 4)]),
             control=np.zeros(12),
         )
         env.render()

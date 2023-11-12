@@ -301,6 +301,12 @@ class BaseMultiagentAviary(BaseAviary):
             obs_12 = np.zeros((self.NUM_DRONES,12))
             for i in range(self.NUM_DRONES):
                 obs = self._clipAndNormalizeState(self._getDroneStateVector(i))
+
+                # For each drone, obs12 will be:
+                #   0-2: x, y, z
+                #   3-5: roll, pitch, yaw
+                #   6-8: vx, vy, vz
+                #  9-11: wx, wy, wz
                 obs_12[i, :] = np.hstack([obs[0:3], obs[7:10], obs[10:13], obs[13:16]]).reshape(12,)
             return np.array([obs_12[i, :] for i in range(self.NUM_DRONES)])
             ############################################################
