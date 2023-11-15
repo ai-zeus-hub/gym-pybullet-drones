@@ -1,17 +1,16 @@
 import os
 from sys import platform
 import time
-import collections
 from datetime import datetime
 import xml.etree.ElementTree as etxml
 import pkg_resources
 from PIL import Image
-# import pkgutil
-# egl = pkgutil.get_loader('eglRenderer')
 import numpy as np
 import pybullet as p
 import pybullet_data
 import gymnasium as gym
+
+from gym_pybullet_drones.agents.BaseAgent import BaseAgent
 from gym_pybullet_drones.utils.enums import DroneModel, Physics, ImageType
 
 
@@ -36,7 +35,8 @@ class BaseAviary(gym.Env):
                  obstacles=False,
                  user_debug_gui=True,
                  vision_attributes=False,
-                 output_folder='results'
+                 output_folder='results',
+                 external_agents=None
                  ):
         """Initialization of a generic aviary environment.
 
@@ -126,6 +126,8 @@ class BaseAviary(gym.Env):
             self.MAX_XY_TORQUE = (2*self.L*self.KF*self.MAX_RPM**2)/np.sqrt(2)
         self.MAX_Z_TORQUE = (2*self.KM*self.MAX_RPM**2)
         self.GND_EFF_H_CLIP = 0.25 * self.PROP_RADIUS * np.sqrt((15 * self.MAX_RPM**2 * self.KF * self.GND_EFF_COEFF) / self.MAX_THRUST)
+
+        self.EXTERNAL_AGENTS: list[BaseAgent] = external_agents or []
         #### Create attributes for vision tasks ####################
         if self.RECORD:
             self.ONBOARD_IMG_PATH = os.path.join(self.OUTPUT_FOLDER, "recording_" + datetime.now().strftime("%m.%d.%Y_%H.%M.%S"))
@@ -190,6 +192,9 @@ class BaseAviary(gym.Env):
                                                             nearVal=0.1,
                                                             farVal=1000.0
                                                             )
+
+        for external_agent in self.EXTERNAL_AGENTS:
+            external_agent.CLIENT = self.CLIENT
         #### Set initial poses #####################################
         if initial_xyzs is None:
             self.INIT_XYZS = np.vstack([np.array([x*4*self.L for x in range(self.NUM_DRONES)]), \
@@ -282,7 +287,7 @@ class BaseAviary(gym.Env):
             Whether the current episode is truncated, check the specific implementation of `_computeTruncated()`
             in each subclass for its format.
         bool | dict[..]
-            Whether the current episode is trunacted, always false.
+            Whether the current episode is truncated, always false.
         dict[..]
             Additional information as a dictionary, check the specific implementation of `_computeInfo()`
             in each subclass for its format.
@@ -347,7 +352,7 @@ class BaseAviary(gym.Env):
             if self.PYB_STEPS_PER_CTRL > 1 and self.PHYSICS in [Physics.DYN, Physics.PYB_GND, Physics.PYB_DRAG, Physics.PYB_DW, Physics.PYB_GND_DRAG_DW]:
                 self._updateAndStoreKinematicInformation()
             #### Step the simulation using the desired physics update ##
-            for i in range (self.NUM_DRONES):
+            for i in range(self.NUM_DRONES):
                 if self.PHYSICS == Physics.PYB:
                     self._physics(clipped_action[i, :], i)
                 elif self.PHYSICS == Physics.DYN:
@@ -366,6 +371,8 @@ class BaseAviary(gym.Env):
                     self._groundEffect(clipped_action[i, :], i)
                     self._drag(self.last_clipped_action[i, :], i)
                     self._downwash(i)
+            for external_agent in self.EXTERNAL_AGENTS:
+                external_agent.bulletStep()
             #### PyBullet computes the new state, unless Physics.DYN ###
             if self.PHYSICS != Physics.DYN:
                 p.stepSimulation(physicsClientId=self.CLIENT)
@@ -384,7 +391,9 @@ class BaseAviary(gym.Env):
         return obs, reward, terminated, truncated, info
     
     ################################################################################
-    
+    def _appendActions(self, action):
+        pass
+
     def render(self,
                mode='human',
                close=False
@@ -491,6 +500,9 @@ class BaseAviary(gym.Env):
                                               flags = p.URDF_USE_INERTIA_FROM_FILE,
                                               physicsClientId=self.CLIENT
                                               ) for i in range(self.NUM_DRONES)])
+
+        for agent in self.EXTERNAL_AGENTS:
+            agent.reset()
         #### Remove default damping #################################
         # for i in range(self.NUM_DRONES):
         #     p.changeDynamics(self.DRONE_IDS[i], -1, linearDamping=0, angularDamping=0)
@@ -519,6 +531,8 @@ class BaseAviary(gym.Env):
             self.pos[i], self.quat[i] = p.getBasePositionAndOrientation(self.DRONE_IDS[i], physicsClientId=self.CLIENT)
             self.rpy[i] = p.getEulerFromQuaternion(self.quat[i])
             self.vel[i], self.ang_v[i] = p.getBaseVelocity(self.DRONE_IDS[i], physicsClientId=self.CLIENT)
+        for external_agent in self.EXTERNAL_AGENTS:
+            external_agent.updateAndStoreKinematicInformation()
     
     ################################################################################
 
@@ -566,8 +580,12 @@ class BaseAviary(gym.Env):
             13-15: wx, wy, wz
             16-19: last action
         """
-        state = np.hstack([self.pos[nth_drone, :], self.quat[nth_drone, :], self.rpy[nth_drone, :],
-                           self.vel[nth_drone, :], self.ang_v[nth_drone, :], self.last_clipped_action[nth_drone, :]])
+        state = np.hstack([self.pos[nth_drone, :],
+                           self.quat[nth_drone, :],
+                           self.rpy[nth_drone, :],
+                           self.vel[nth_drone, :],
+                           self.ang_v[nth_drone, :],
+                           self.last_clipped_action[nth_drone, :]])
         return state.reshape(20,)
 
     ################################################################################

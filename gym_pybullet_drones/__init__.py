@@ -16,6 +16,11 @@ register(
 )
 
 register(
+    id='single-tracking-aviary-v0',
+    entry_point='gym_pybullet_drones.envs.single_agent_rl:SingleTrackingAviary',
+)
+
+register(
     id='flythrugate-aviary-v0',
     entry_point='gym_pybullet_drones.envs.single_agent_rl:FlyThruGateAviary',
 )
@@ -31,6 +36,6 @@ register(
 )
 
 register(
-    id='tracking-aviary-v0',
-    entry_point='gym_pybullet_drones.envs.multi_agent_rl:TrackingAviary',
+    id='multi-tracking-aviary-v0',
+    entry_point='gym_pybullet_drones.envs.multi_agent_rl:MultiTrackingAviary',
 )
