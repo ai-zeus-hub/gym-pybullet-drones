@@ -62,7 +62,8 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, gui=DEFAULT_GUI, plot=True, colab=D
         logger.log(drone=0,
                    timestamp=i/env.CTRL_FREQ,
                    state=np.hstack([obs[0:3], np.zeros(4), obs[3:15],  np.resize(action, (4))]),
-                   control=np.zeros(12)
+                   control=np.zeros(12),
+                   reward=reward
                    )
         env.render()
         print(terminated)

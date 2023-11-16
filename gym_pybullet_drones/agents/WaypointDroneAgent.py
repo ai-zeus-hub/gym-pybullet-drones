@@ -52,54 +52,54 @@ class WaypointDroneAgent(DroneAgent):
         self.last_action = self.cur_rpms
 
 
-    def clipAndNormalizeState(self, state):
-        """Normalizes a drone's state to the [-1,1] range.
-
-        Parameters
-        ----------
-        state : ndarray
-            (16,)-shaped array of floats containing the non-normalized state of a single drone.
-
-        Returns
-        -------
-        ndarray
-            (16,)-shaped array of floats containing the normalized state of a single drone.
-        """
-        MAX_LIN_VEL_XY = 3
-        MAX_LIN_VEL_Z = 1
-
-        MAX_XY = MAX_LIN_VEL_XY * self.EPISODE_LEN_SEC
-        MAX_Z = MAX_LIN_VEL_Z * self.EPISODE_LEN_SEC
-
-        MAX_PITCH_ROLL = np.pi  # Full range
-
-        # clip
-        clipped_pos_xy = np.clip(state[0:2], -MAX_XY, MAX_XY)
-        clipped_pos_z = np.clip(state[2], 0, MAX_Z)
-        clipped_rp = np.clip(state[7:9], -MAX_PITCH_ROLL, MAX_PITCH_ROLL)
-        clipped_vel_xy = np.clip(state[10:12], -MAX_LIN_VEL_XY, MAX_LIN_VEL_XY)
-        clipped_vel_z = np.clip(state[12], -MAX_LIN_VEL_Z, MAX_LIN_VEL_Z)
-
-        # normalize
-        normalized_pos_xy = clipped_pos_xy / MAX_XY
-        normalized_pos_z = clipped_pos_z / MAX_Z
-        normalized_rp = clipped_rp / MAX_PITCH_ROLL
-        normalized_y = state[9] / np.pi  # No reason to clip
-        normalized_vel_xy = clipped_vel_xy / MAX_LIN_VEL_XY
-        normalized_vel_z = clipped_vel_z / MAX_LIN_VEL_XY
-        normalized_ang_vel = state[13:16] / np.linalg.norm(state[13:16]) if np.linalg.norm(
-            state[13:16]) != 0 else state[13:16]
-
-        norm_and_clipped = np.hstack([normalized_pos_xy,
-                                      normalized_pos_z,
-                                      state[3:7],
-                                      normalized_rp,
-                                      normalized_y,
-                                      normalized_vel_xy,
-                                      normalized_vel_z,
-                                      normalized_ang_vel,
-                                      ]).reshape(16, )
-        return norm_and_clipped
+    # def clipAndNormalizeState(self, state):
+    #     """Normalizes a drone's state to the [-1,1] range.
+    #
+    #     Parameters
+    #     ----------
+    #     state : ndarray
+    #         (16,)-shaped array of floats containing the non-normalized state of a single drone.
+    #
+    #     Returns
+    #     -------
+    #     ndarray
+    #         (16,)-shaped array of floats containing the normalized state of a single drone.
+    #     """
+    #     MAX_LIN_VEL_XY = 3
+    #     MAX_LIN_VEL_Z = 1
+    #
+    #     MAX_XY = MAX_LIN_VEL_XY * self.EPISODE_LEN_SEC
+    #     MAX_Z = MAX_LIN_VEL_Z * self.EPISODE_LEN_SEC
+    #
+    #     MAX_PITCH_ROLL = np.pi  # Full range
+    #
+    #     # clip
+    #     clipped_pos_xy = np.clip(state[0:2], -MAX_XY, MAX_XY)
+    #     clipped_pos_z = np.clip(state[2], 0, MAX_Z)
+    #     clipped_rp = np.clip(state[7:9], -MAX_PITCH_ROLL, MAX_PITCH_ROLL)
+    #     clipped_vel_xy = np.clip(state[10:12], -MAX_LIN_VEL_XY, MAX_LIN_VEL_XY)
+    #     clipped_vel_z = np.clip(state[12], -MAX_LIN_VEL_Z, MAX_LIN_VEL_Z)
+    #
+    #     # normalize
+    #     normalized_pos_xy = clipped_pos_xy / MAX_XY
+    #     normalized_pos_z = clipped_pos_z / MAX_Z
+    #     normalized_rp = clipped_rp / MAX_PITCH_ROLL
+    #     normalized_y = state[9] / np.pi  # No reason to clip
+    #     normalized_vel_xy = clipped_vel_xy / MAX_LIN_VEL_XY
+    #     normalized_vel_z = clipped_vel_z / MAX_LIN_VEL_XY
+    #     normalized_ang_vel = state[13:16] / np.linalg.norm(state[13:16]) if np.linalg.norm(
+    #         state[13:16]) != 0 else state[13:16]
+    #
+    #     norm_and_clipped = np.hstack([normalized_pos_xy,
+    #                                   normalized_pos_z,
+    #                                   state[3:7],
+    #                                   normalized_rp,
+    #                                   normalized_y,
+    #                                   normalized_vel_xy,
+    #                                   normalized_vel_z,
+    #                                   normalized_ang_vel,
+    #                                   ]).reshape(16, )
+    #     return norm_and_clipped
 
     def reset(self):
         super().reset()

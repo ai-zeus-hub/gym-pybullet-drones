@@ -17,7 +17,6 @@ class Kinematics:
     vel: np.array = np.zeros(3)
     ang_v: np.array = np.zeros(3)
 
-
 def calc_max_xy_torque(drone_model, params, max_rpm):
     max_xy_torque = -1.0
     if drone_model == DroneModel.CF2X:
@@ -130,6 +129,10 @@ class DroneAgent(BaseAgent):
                            self.kinematics.ang_v[:],
                            self.last_action[:]])
         return state.reshape(20,)
+
+    def kinematics(self):
+        return self.kinematics
+
     def reset(self):
         self.AGENT_ID = p.loadURDF(pkg_resources.resource_filename('gym_pybullet_drones', 'assets/' + self.URDF),
                                    self.INIT_XYZ,

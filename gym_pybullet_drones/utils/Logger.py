@@ -77,6 +77,7 @@ class Logger(object):
                                                                                                              # ang_vel_x,
                                                                                                              # ang_vel_y,
                                                                                                              # ang_vel_z
+        self.rewards = np.zeros((num_drones, duration_sec * self.LOGGING_FREQ_HZ))
 
     ################################################################################
 
@@ -84,7 +85,8 @@ class Logger(object):
             drone: int,
             timestamp,
             state,
-            control=np.zeros(12)
+            control=np.zeros(12),
+            reward=np.zeros(1),
             ):
         """Logs entries for a single simulation step, of a single drone.
 
@@ -108,6 +110,7 @@ class Logger(object):
             self.timestamps = np.concatenate((self.timestamps, np.zeros((self.NUM_DRONES, 1))), axis=1)
             self.states = np.concatenate((self.states, np.zeros((self.NUM_DRONES, 16, 1))), axis=2)
             self.controls = np.concatenate((self.controls, np.zeros((self.NUM_DRONES, 12, 1))), axis=2)
+            self.rewards = np.concatenate((self.rewards, np.zeros((self.NUM_DRONES, 1))), axis=1)
         #### Advance a counter is the matrices have overgrown it ###
         elif not self.PREALLOCATED_ARRAYS and self.timestamps.shape[1] > current_counter:
             current_counter = self.timestamps.shape[1]-1
@@ -117,6 +120,8 @@ class Logger(object):
         self.states[drone, :, current_counter] = np.hstack([state[0:3], state[10:13], state[7:10], state[13:20]])
         self.controls[drone, :, current_counter] = control
         self.counters[drone] = current_counter + 1
+        self.rewards[drone, current_counter] = reward
+        print(f"{reward=}")
 
     ################################################################################
 
@@ -124,7 +129,7 @@ class Logger(object):
         """Save the logs to file.
         """
         with open(os.path.join(self.OUTPUT_FOLDER, "save-flight-"+datetime.now().strftime("%m.%d.%Y_%H.%M.%S")+".npy"), 'wb') as out_file:
-            np.savez(out_file, timestamps=self.timestamps, states=self.states, controls=self.controls)
+            np.savez(out_file, timestamps=self.timestamps, states=self.states, controls=self.controls, rewards=self.rewards)
 
     ################################################################################
 
@@ -199,6 +204,8 @@ class Logger(object):
                 np.savetxt(out_file, np.transpose(np.vstack([t, (self.states[i, 14, :] - 4070.3) / 0.2685])), delimiter=",")
             with open(csv_dir+"/pwm3-"+str(i)+".csv", 'wb') as out_file:
                 np.savetxt(out_file, np.transpose(np.vstack([t, (self.states[i, 15, :] - 4070.3) / 0.2685])), delimiter=",")
+        with open(csv_dir + "/rewards.csv", 'wb') as out_file:
+            np.savetxt(out_file, np.transpose(np.vstack([t, self.rewards[0, :]])), delimiter=",")
 
     ################################################################################
     
@@ -213,9 +220,21 @@ class Logger(object):
         """
         #### Loop over colors and line styles ######################
         plt.rc('axes', prop_cycle=(cycler('color', ['r', 'g', 'b', 'y']) + cycler('linestyle', ['-', '--', ':', '-.'])))
-        fig, axs = plt.subplots(10, 2)
-        t = np.arange(0, self.timestamps.shape[1]/self.LOGGING_FREQ_HZ, 1/self.LOGGING_FREQ_HZ)
+        nrows = 7
+        ncols = 3
+        fig, axs = plt.subplots(nrows, ncols)
 
+        t = np.zeros(len(self.rewards))
+        sum = 0
+        for i in range(len(t)):
+            t[i] = sum
+            sum += 1/self.LOGGING_FREQ_HZ
+
+        # t = np.arange(0, self.timestamps.shape[1]/self.LOGGING_FREQ_HZ, 1/self.LOGGING_FREQ_HZ)
+        # if len(t) == (len(self.rewards) - 1):
+        #     t = t[:-1]
+        assert len(t) == len(self.rewards), f"{len(t)} != {len(self.rewards)}"
+        assert len(t) == len(self.states), f"{len(t)} != {len(self.states)}"
         #### Column ################################################
         col = 0
 
@@ -255,25 +274,8 @@ class Logger(object):
         axs[row, col].set_xlabel('time')
         axs[row, col].set_ylabel('y (rad)')
 
-        #### Ang Vel ###############################################
-        row = 6
-        for j in range(self.NUM_DRONES):
-            axs[row, col].plot(t, self.states[j, 9, :], label="drone_"+str(j))
-        axs[row, col].set_xlabel('time')
-        axs[row, col].set_ylabel('wx')
-        row = 7
-        for j in range(self.NUM_DRONES):
-            axs[row, col].plot(t, self.states[j, 10, :], label="drone_"+str(j))
-        axs[row, col].set_xlabel('time')
-        axs[row, col].set_ylabel('wy')
-        row = 8
-        for j in range(self.NUM_DRONES):
-            axs[row, col].plot(t, self.states[j, 11, :], label="drone_"+str(j))
-        axs[row, col].set_xlabel('time')
-        axs[row, col].set_ylabel('wz')
-
         #### Time ##################################################
-        row = 9
+        row = 6
         axs[row, col].plot(t, t, label="time")
         axs[row, col].set_xlabel('time')
         axs[row, col].set_ylabel('time')
@@ -325,34 +327,59 @@ class Logger(object):
                 if pwm and j > 0:
                     self.states[j, i, :] = (self.states[j, i, :] - 4070.3) / 0.2685
 
-        #### RPMs ##################################################
+        #### Rewards ##################################################
         row = 6
+        axs[row, col].plot(t, self.rewards[0, :], label="rewards")
+        axs[row, col].set_xlabel('time')
+        axs[row, col].set_ylabel('reward')
+
+        #### Column ################################################
+        col = 2
+        #### Ang Vel ###############################################
+        row = 0
         for j in range(self.NUM_DRONES):
-            axs[row, col].plot(t, self.states[j, 12, :], label="drone_"+str(j))
+            axs[row, col].plot(t, self.states[j, 9, :], label="drone_" + str(j))
+        axs[row, col].set_xlabel('time')
+        axs[row, col].set_ylabel('wx')
+        row = 1
+        for j in range(self.NUM_DRONES):
+            axs[row, col].plot(t, self.states[j, 10, :], label="drone_" + str(j))
+        axs[row, col].set_xlabel('time')
+        axs[row, col].set_ylabel('wy')
+        row = 2
+        for j in range(self.NUM_DRONES):
+            axs[row, col].plot(t, self.states[j, 11, :], label="drone_" + str(j))
+        axs[row, col].set_xlabel('time')
+        axs[row, col].set_ylabel('wz')
+
+        #### RPMs ##################################################
+        row = 3
+        for j in range(self.NUM_DRONES):
+            axs[row, col].plot(t, self.states[j, 12, :], label="drone_" + str(j))
         axs[row, col].set_xlabel('time')
         if pwm:
             axs[row, col].set_ylabel('PWM0')
         else:
             axs[row, col].set_ylabel('RPM0')
-        row = 7
+        row = 4
         for j in range(self.NUM_DRONES):
-            axs[row, col].plot(t, self.states[j, 13, :], label="drone_"+str(j))
+            axs[row, col].plot(t, self.states[j, 13, :], label="drone_" + str(j))
         axs[row, col].set_xlabel('time')
         if pwm:
             axs[row, col].set_ylabel('PWM1')
         else:
             axs[row, col].set_ylabel('RPM1')
-        row = 8
+        row = 5
         for j in range(self.NUM_DRONES):
-            axs[row, col].plot(t, self.states[j, 14, :], label="drone_"+str(j))
+            axs[row, col].plot(t, self.states[j, 14, :], label="drone_" + str(j))
         axs[row, col].set_xlabel('time')
         if pwm:
             axs[row, col].set_ylabel('PWM2')
         else:
             axs[row, col].set_ylabel('RPM2')
-        row = 9
+        row = 6
         for j in range(self.NUM_DRONES):
-            axs[row, col].plot(t, self.states[j, 15, :], label="drone_"+str(j))
+            axs[row, col].plot(t, self.states[j, 15, :], label="drone_" + str(j))
         axs[row, col].set_xlabel('time')
         if pwm:
             axs[row, col].set_ylabel('PWM3')
@@ -360,8 +387,8 @@ class Logger(object):
             axs[row, col].set_ylabel('RPM3')
 
         #### Drawing options #######################################
-        for i in range (10):
-            for j in range (2):
+        for i in range (nrows):
+            for j in range (ncols):
                 axs[i, j].grid(True)
                 axs[i, j].legend(loc='upper right',
                          frameon=True
@@ -371,7 +398,7 @@ class Logger(object):
                             right=0.99,
                             top=0.98,
                             wspace=0.15,
-                            hspace=0.0
+                            hspace=0.05
                             )
         if self.COLAB: 
             plt.savefig(os.path.join('results', 'output_figure.png'))

@@ -4,6 +4,7 @@ from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
 from gym_pybullet_drones.utils.enums import DroneModel, Physics
 from gym_pybullet_drones.envs.single_agent_rl.BaseSingleAgentAviary import ActionType, ObservationType, \
     BaseSingleAgentAviary
+from gym_pybullet_drones.agents.DroneAgent import Kinematics
 from gym_pybullet_drones.agents.WaypointDroneAgent import WaypointDroneAgent
 
 
@@ -17,6 +18,7 @@ class SingleTrackingAviary(BaseSingleAgentAviary):
                  initial_rpys=None,
                  pyb_freq: int = 240,
                  ctrl_freq: int = 240,
+                 episode_length_sec = 5,
                  gui=False,
                  record=False,
                  obs: ObservationType = ObservationType.KIN,
@@ -68,6 +70,7 @@ class SingleTrackingAviary(BaseSingleAgentAviary):
                          physics=physics,
                          pyb_freq=pyb_freq,
                          ctrl_freq=ctrl_freq,
+                         episode_length_sec=episode_length_sec,  # todo: ajr - remove
                          gui=gui,
                          record=record,
                          obs=obs,
@@ -82,6 +85,23 @@ class SingleTrackingAviary(BaseSingleAgentAviary):
         # TODO: ajr
         return super()._observationSpace()
 
+    @property
+    def _target_pos(self):
+        # target_pos = self.INIT_XYZS[0]
+        # target_pos[2] = 1
+        # return target_pos
+        kin: Kinematics = self.EXTERNAL_AGENTS[0].kinematics
+        return kin.pos
+
+    def upside_down(self, rpy):
+        return np.abs(rpy[0]) > 3.0 or np.abs(rpy[1]) > 3.0
+
+    def target_distance(self, cur_pos):
+        return np.abs(np.linalg.norm(self._target_pos - cur_pos))
+
+    def too_far(self, cur_pos, threshold=1):
+        return self.target_distance(cur_pos) > threshold
+
     def _computeReward(self):
         """Computes the current reward value.
 
@@ -91,8 +111,19 @@ class SingleTrackingAviary(BaseSingleAgentAviary):
             The reward.
 
         """
+
         state = self._getDroneStateVector(0)
-        return -1 * np.linalg.norm(np.array([0, 0, 1]) - state[0:3]) ** 2
+        distance = self.target_distance(cur_pos=state[0:3])
+        distance_reward = -1 * (distance ** 2)
+
+        orientation_penalty = 0
+        if self.upside_down(rpy=state[7:10]):
+            orientation_penalty = -1000
+
+        time_reward = self.step_counter * 0.01
+
+        reward = distance_reward + orientation_penalty + time_reward
+        return reward
 
     ################################################################################
 
@@ -105,7 +136,15 @@ class SingleTrackingAviary(BaseSingleAgentAviary):
             Whether the current episode is done.
 
         """
+        state = self._getDroneStateVector(0)
         if self.step_counter / self.PYB_FREQ > self.EPISODE_LEN_SEC:
+            print("past episode down!")
+            return True
+        elif self.upside_down(state[7:10]):
+            print("upside down!")
+            return True
+        elif self.too_far(cur_pos=state[0:3], threshold=4):
+            print("too far!")
             return True
         else:
             return False

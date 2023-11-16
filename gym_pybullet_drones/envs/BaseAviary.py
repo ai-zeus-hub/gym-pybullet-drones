@@ -130,7 +130,8 @@ class BaseAviary(gym.Env):
         self.EXTERNAL_AGENTS: list[BaseAgent] = external_agents or []
         #### Create attributes for vision tasks ####################
         if self.RECORD:
-            self.ONBOARD_IMG_PATH = os.path.join(self.OUTPUT_FOLDER, "recording_" + datetime.now().strftime("%m.%d.%Y_%H.%M.%S"))
+            now = datetime.now().strftime("%m.%d.%Y_%H.%M.%S")
+            self.ONBOARD_IMG_PATH = os.path.join(self.OUTPUT_FOLDER, "recording_" + now)
             os.makedirs(os.path.dirname(self.ONBOARD_IMG_PATH), exist_ok=True)
         self.VISION_ATTR = vision_attributes
         if self.VISION_ATTR:
@@ -391,8 +392,6 @@ class BaseAviary(gym.Env):
         return obs, reward, terminated, truncated, info
     
     ################################################################################
-    def _appendActions(self, action):
-        pass
 
     def render(self,
                mode='human',
@@ -542,17 +541,20 @@ class BaseAviary(gym.Env):
         The format of the video output is .mp4, if GUI is True, or .png, otherwise.
 
         """
+        now = datetime.now().strftime("%m.%d.%Y_%H.%M.%S")
         if self.RECORD and self.GUI:
-            VIDEO_FOLDER = os.path.join(self.OUTPUT_FOLDER, "recording_" + datetime.now().strftime("%m.%d.%Y_%H.%M.%S"))
-            os.makedirs(os.path.dirname(VIDEO_FOLDER), exist_ok=True)
+            # output_dir = self.ONBOARD_IMG_PATH
+            VIDEO_FOLDER = os.path.join(self.OUTPUT_FOLDER, "recording_" + now)
+            os.makedirs(VIDEO_FOLDER, exist_ok=True)
             self.VIDEO_ID = p.startStateLogging(loggingType=p.STATE_LOGGING_VIDEO_MP4,
                                                 fileName=os.path.join(VIDEO_FOLDER, "output.mp4"),
                                                 physicsClientId=self.CLIENT
                                                 )
         if self.RECORD and not self.GUI:
+            # output_dir = self.ONBOARD_IMG_PATH
             self.FRAME_NUM = 0
-            self.IMG_PATH = os.path.join(self.OUTPUT_FOLDER, "recording_" + datetime.now().strftime("%m.%d.%Y_%H.%M.%S"), '')
-            os.makedirs(os.path.dirname(self.IMG_PATH), exist_ok=True)
+            self.IMG_PATH = os.path.join(self.OUTPUT_FOLDER, "images_" + now, '')
+            os.makedirs(self.IMG_PATH, exist_ok=True)
     
     ################################################################################
 

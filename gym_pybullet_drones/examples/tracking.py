@@ -21,7 +21,7 @@ from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.utils.utils import str2bool, sync
 
 DEFAULT_GUI = True
-DEFAULT_RECORD_VIDEO = False
+DEFAULT_RECORD_VIDEO = True
 DEFAULT_OUTPUT_FOLDER = "results"
 DEFAULT_COLAB = False
 
@@ -67,6 +67,7 @@ def run(
     plot: bool = True,
     colab: bool = DEFAULT_COLAB,
     record_video: bool = DEFAULT_RECORD_VIDEO,
+    duration_sec = 15,
 ):
     sim_freq = 240
     ctrl_freq = 48
@@ -74,7 +75,7 @@ def run(
     initial_xyz, initial_rpy, waypoints = calculateWaypoints(ctrl_freq)
 
     # Check the environment's spaces
-    tracking_init_pos = np.array([[1, 1, 0.5]])
+    tracking_init_pos = np.array([[1, 1, 0]])
     env = gym.make("single-tracking-aviary-v0",
                    initial_xyzs=tracking_init_pos,
                    target_initial_xyz=initial_xyz,
@@ -88,7 +89,7 @@ def run(
 
     # Train the model
     model = PPO("MlpPolicy", env, verbose=1)
-    model.learn(total_timesteps=10000)  # Typically not enough
+    model.learn(total_timesteps=50000)  # Typically not enough
 
     # Show (and record a video of) the model's performance
     env = SingleTrackingAviary(gui=gui, record=record_video,
@@ -97,10 +98,11 @@ def run(
                                target_initial_rpy=initial_rpy,
                                target_waypoints=waypoints,
                                pyb_freq=sim_freq,
-                               ctrl_freq=ctrl_freq
+                               ctrl_freq=ctrl_freq,
+                               episode_length_sec=duration_sec,
                                )
+
     logger = Logger(
-        duration_sec=5,  # time for now
         logging_freq_hz=int(env.CTRL_FREQ),
         num_drones=2,
         output_folder=output_folder,
@@ -108,12 +110,12 @@ def run(
     )
     obs, info = env.reset(seed=42, options={})
     start = time.time()
-    for i in range(5 * env.CTRL_FREQ):
-        action, _states = model.predict(obs, deterministic=True)
-        obs, reward, terminated, truncated, info = env.step(action)
+    for i in range(duration_sec * env.CTRL_FREQ):
+        normalized_action, _states = model.predict(obs, deterministic=True)
+        obs, reward, terminated, truncated, info = env.step(normalized_action)
 
         # For plotting purposes, we are primarily interested in the tracking drone
-        tracking_actions_as_rpms = env._preprocessAction(action)[tracking_drone]
+        tracking_actions_as_rpms = env._preprocessAction(normalized_action)[tracking_drone]
         logger.log(drone=tracking_drone,
                    timestamp=i / env.CTRL_FREQ,
                    state=np.hstack([obs[0:3],
@@ -121,6 +123,7 @@ def run(
                                     obs[3:15],
                                     np.resize(tracking_actions_as_rpms, 4)]),
                    control=np.zeros(12),
+                   reward=reward
                    )
 
         logger.log(drone=1,
@@ -133,11 +136,12 @@ def run(
         print(f"{terminated=}")
         sync(i, start, env.CTRL_TIMESTEP)
         if terminated:
-            obs = env.reset(seed=42, options={})
+            obs, info = env.reset(seed=42, options={})
+            break
     env.close()
 
-    if plot:
-        logger.plot()
+    # if plot:
+    #     logger.plot()
 
 
 if __name__ == "__main__":

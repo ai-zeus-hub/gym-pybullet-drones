@@ -21,6 +21,7 @@ class BaseSingleAgentAviary(BaseAviary):
                  physics: Physics=Physics.PYB,
                  pyb_freq: int = 240,
                  ctrl_freq: int = 240,
+                 episode_length_sec = 5,  # todo: remove this
                  gui=False,
                  record=False,
                  obs: ObservationType=ObservationType.KIN,
@@ -61,7 +62,7 @@ class BaseSingleAgentAviary(BaseAviary):
         vision_attributes = True if obs == ObservationType.RGB else False
         self.OBS_TYPE = obs
         self.ACT_TYPE = act
-        self.EPISODE_LEN_SEC = 5
+        self.EPISODE_LEN_SEC = episode_length_sec
         #### Create integrated controllers #########################
         if act in [ActionType.PID, ActionType.VEL, ActionType.ONE_D_PID]:
             os.environ['KMP_DUPLICATE_LIB_OK']='True'

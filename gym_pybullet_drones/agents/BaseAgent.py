@@ -1,5 +1,6 @@
 from gym_pybullet_drones.utils.enums import Physics
 
+
 class BaseAgent:
     def __init__(self, physics: Physics = Physics.PYB,
                  pyb_freq: int = 240,
@@ -29,4 +30,7 @@ class BaseAgent:
         raise NotImplementedError
 
     def updateAndStoreKinematicInformation(self):
+        raise NotImplementedError
+
+    def kinematics(self):
         raise NotImplementedError
