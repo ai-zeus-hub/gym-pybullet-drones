@@ -25,21 +25,23 @@ DEFAULT_RECORD_VIDEO = True
 DEFAULT_OUTPUT_FOLDER = "results"
 DEFAULT_COLAB = False
 
-
 def calculateWaypoints(control_freq_hz):
     num_drones = 1
-    H = .1        # height
+    H = .1  # height
     H_STEP = .05  # height difference between drones
-    R = .3        # radius
-    INIT_XYZS = np.array([[R*np.cos((i/6)*2*np.pi+np.pi/2), R*np.sin((i/6)*2*np.pi+np.pi/2)-R, H+i*H_STEP] for i in range(num_drones)])
-    INIT_RPYS = np.array([[0, 0,  i * (np.pi/2)/num_drones] for i in range(num_drones)])
+    R = 1.5  # radius
+    INIT_XYZS = np.array(
+        [[R * np.cos((i / 6) * 2 * np.pi + np.pi / 2), R * np.sin((i / 6) * 2 * np.pi + np.pi / 2) - R, H + i * H_STEP]
+         for i in range(num_drones)])
+    INIT_RPYS = np.array([[0, 0, i * (np.pi / 2) / num_drones] for i in range(num_drones)])
 
     # Initialize a circular trajectory
-    PERIOD = 10  # Time for 1 full circle
-    NUM_WP = control_freq_hz*PERIOD
-    TARGET_POS = np.zeros((NUM_WP,3))
+    PERIOD = 7  # Time for 1 full circle
+    NUM_WP = control_freq_hz * PERIOD
+    TARGET_POS = np.zeros((NUM_WP, 3))
     for i in range(NUM_WP):
-        TARGET_POS[i, :] = R*np.cos((i/NUM_WP)*(2*np.pi)+np.pi/2)+INIT_XYZS[0, 0], R*np.sin((i/NUM_WP)*(2*np.pi)+np.pi/2)-R+INIT_XYZS[0, 1], 0
+        TARGET_POS[i, :] = R * np.cos((i / NUM_WP) * (2 * np.pi) + np.pi / 2) + INIT_XYZS[0, 0], R * np.sin(
+            (i / NUM_WP) * (2 * np.pi) + np.pi / 2) - R + INIT_XYZS[0, 1], 0
     return INIT_XYZS[0], INIT_RPYS[0], TARGET_POS
 
 
@@ -50,24 +52,22 @@ def agent_to_logger_state(drone: DroneAgent):
     state[7:10] = drone.kinematics.rpy
     state[13:16] = drone.kinematics.ang_v
     state[16:20] = drone.last_action
-
-
     # This is the internal logger mapping
     # state[0:3] = drone.kinematics.pos
     # state[3:6] = drone.kinematics.vel
     # state[6:9] = drone.kinematics.rpy
     # state[9:12] = drone.kinematics.ang_v
     # state[12:16] = drone.last_action # rpms
-
     return state
 
+
 def run(
-    output_folder: str = DEFAULT_OUTPUT_FOLDER,
-    gui: bool = DEFAULT_GUI,
-    plot: bool = True,
-    colab: bool = DEFAULT_COLAB,
-    record_video: bool = DEFAULT_RECORD_VIDEO,
-    duration_sec = 15,
+        output_folder: str = DEFAULT_OUTPUT_FOLDER,
+        gui: bool = DEFAULT_GUI,
+        plot: bool = True,
+        colab: bool = DEFAULT_COLAB,
+        record_video: bool = DEFAULT_RECORD_VIDEO,
+        duration_sec: int = 15,
 ):
     sim_freq = 240
     ctrl_freq = 48
@@ -88,8 +88,10 @@ def run(
     print("[INFO] Observation space:", env.observation_space)
 
     # Train the model
-    model = PPO("MlpPolicy", env, verbose=1)
-    model.learn(total_timesteps=50000)  # Typically not enough
+    policy_kwargs = dict(activation_fn=torch.nn.ReLU,
+                         net_arch=[1024, 512, 128, 64])
+    model = PPO("MlpPolicy", env, n_epochs=20, policy_kwargs=policy_kwargs, verbose=1)
+    model.learn(total_timesteps=50000)  # 2000000  # Typically not enough
 
     # Show (and record a video of) the model's performance
     env = SingleTrackingAviary(gui=gui, record=record_video,
@@ -139,6 +141,8 @@ def run(
             obs, info = env.reset(seed=42, options={})
             break
     env.close()
+
+    model.save("save_results/ppo.sb3")
 
     # if plot:
     #     logger.plot()
