@@ -26,6 +26,8 @@ class SingleTrackingAviary(BaseSingleAgentAviary):
                  target_initial_xyz=None,
                  target_initial_rpy=None,
                  target_waypoints=None,
+                 desired_distance=2.0,
+                 below_target_penalty=8.0,
                  ):
         """Initialization of a single agent RL environment.
 
@@ -62,7 +64,7 @@ class SingleTrackingAviary(BaseSingleAgentAviary):
             pyb_freq=pyb_freq,
             ctrl_freq=ctrl_freq,
             waypoints=target_waypoints,
-            episode_length_sec=5
+            episode_length_sec=episode_length_sec,
         )
         super().__init__(drone_model=drone_model,
                          initial_xyzs=initial_xyzs,
@@ -75,9 +77,11 @@ class SingleTrackingAviary(BaseSingleAgentAviary):
                          record=record,
                          obs=obs,
                          act=act,
-                         external_agents=[external_agent]
+                         external_agents=[external_agent],
                          )
         self.num_target_drones = 1
+        self._desired_distance = desired_distance
+        self._below_target_penalty = below_target_penalty
 
 
     ################################################################################
@@ -114,15 +118,24 @@ class SingleTrackingAviary(BaseSingleAgentAviary):
 
         state = self._getDroneStateVector(0)
         distance = self.target_distance(cur_pos=state[0:3])
-        distance_reward = -1 * (distance ** 2)
+        # distance_reward = -1 * (distance ** 2)
+        distance_reward = -1 * (distance - self._desired_distance) ** 2
+
+        # todo: ajr - hacky trial:
+        if np.abs(distance - self._desired_distance) < 0.2:
+            distance_reward = 1
+
+        below_target_penalty = 0.0
+        if state[2] < self._target_pos[2]:
+            below_target_penalty = -1 * (self._target_pos[2] - state[2]) * self._below_target_penalty
 
         orientation_penalty = 0
         if self.upside_down(rpy=state[7:10]):
             orientation_penalty = -1000
 
-        time_reward = self.step_counter * 0.01
+        time_reward = 0  # self.step_counter * 0.005
 
-        reward = distance_reward + orientation_penalty + time_reward
+        reward = distance_reward + below_target_penalty + orientation_penalty + time_reward
         return reward
 
     ################################################################################
@@ -138,7 +151,7 @@ class SingleTrackingAviary(BaseSingleAgentAviary):
         """
         state = self._getDroneStateVector(0)
         if self.step_counter / self.PYB_FREQ > self.EPISODE_LEN_SEC:
-            print("past episode down!")
+            print("past episode length!")
             return True
         elif self.upside_down(state[7:10]):
             print("upside down!")
