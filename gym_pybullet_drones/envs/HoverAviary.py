@@ -19,7 +19,8 @@ class HoverAviary(BaseRLAviary):
                  record=False,
                  obs: ObservationType=ObservationType.KIN,
                  act: ActionType=ActionType.RPM,
-                 target_pos = None
+                 target_pos = None,
+                 episode_len = 8,
                  ):
         """Initialization of a single agent RL environment.
 
@@ -51,7 +52,7 @@ class HoverAviary(BaseRLAviary):
         """
         self.TARGET_POS = np.array([0, 0, 1]) if target_pos is None else target_pos
 
-        self.EPISODE_LEN_SEC = 8
+        self.EPISODE_LEN_SEC = episode_len
         super().__init__(drone_model=drone_model,
                          num_drones=1,
                          initial_xyzs=initial_xyzs,

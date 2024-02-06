@@ -44,8 +44,11 @@ DEFAULT_OBS = ObservationType('kin') # 'kin' or 'rgb'
 DEFAULT_ACT = ActionType('vel') # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
 DEFAULT_AGENTS = 2
 DEFAULT_MA = False
+DEFAULT_EPISODE_LEN=12
 
-def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER, gui=DEFAULT_GUI, plot=True, colab=DEFAULT_COLAB, record_video=DEFAULT_RECORD_VIDEO, local=True):
+def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
+        gui=DEFAULT_GUI, plot=True, colab=DEFAULT_COLAB, record_video=DEFAULT_RECORD_VIDEO,
+        local=True, episode_len=DEFAULT_EPISODE_LEN):
 
     # filename = os.path.join(output_folder, 'save-'+datetime.now().strftime("%m.%d.%Y_%H.%M.%S"))
     filename = os.path.join(output_folder, 'save-latest')
@@ -55,8 +58,9 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER, gui=DEFAULT_
     if not multiagent:
         train_env = make_vec_env(HoverAviary,
                                  env_kwargs=dict(obs=DEFAULT_OBS, act=DEFAULT_ACT,
+                                                 episode_len=episode_len,
                                                  initial_xyzs=np.array([[0, 0, 0]]),
-                                                 target_pos=np.array([0, 1, 1])),
+                                                 target_pos=np.array([0, 2, 1])),
                                  n_envs=1,
                                  seed=0
                                  )
@@ -73,7 +77,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER, gui=DEFAULT_
     print('[INFO] Action space:', train_env.action_space)
     print('[INFO] Observation space:', train_env.observation_space)
 
-    #### Train the model #######################################
+    ### Train the model #######################################
     policy_kwargs = dict(net_arch=[256, 256, 128, 64])
     model = PPO('MlpPolicy',
                 train_env,
@@ -90,7 +94,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER, gui=DEFAULT_
                 # ent_coef=0.1,
                 policy_kwargs=policy_kwargs)
 
-    # policy_kwargs = dict(net_arch=[128, 128, 128, 64], lstm_hidden_size=8)
+    # policy_kwargs = dict(net_arch=[128, 128, 128, 64], lstm_hidden_size=4)
     # model = RecurrentPPO('MlpLstmPolicy',
     #             train_env,
     #             tensorboard_log=filename+'/tb/',
@@ -158,8 +162,9 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER, gui=DEFAULT_
         test_env = HoverAviary(gui=gui,
                                obs=DEFAULT_OBS,
                                act=DEFAULT_ACT,
+                               episode_len=episode_len,
                                record=record_video)
-        test_env_nogui = HoverAviary(obs=DEFAULT_OBS, act=DEFAULT_ACT)
+        test_env_nogui = HoverAviary(obs=DEFAULT_OBS, act=DEFAULT_ACT, episode_len=episode_len)
     else:
         test_env = MultiHoverAviary(gui=gui,
                                         num_drones=DEFAULT_AGENTS,
