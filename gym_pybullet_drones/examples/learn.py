@@ -27,6 +27,8 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnRewardThreshold
 from stable_baselines3.common.evaluation import evaluate_policy
 
+from sb3_contrib import RecurrentPPO
+
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.envs.HoverAviary import HoverAviary
 from gym_pybullet_drones.envs.MultiHoverAviary import MultiHoverAviary
@@ -39,7 +41,7 @@ DEFAULT_OUTPUT_FOLDER = 'results'
 DEFAULT_COLAB = False
 
 DEFAULT_OBS = ObservationType('kin') # 'kin' or 'rgb'
-DEFAULT_ACT = ActionType('one_d_rpm') # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
+DEFAULT_ACT = ActionType('vel') # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
 DEFAULT_AGENTS = 2
 DEFAULT_MA = False
 
@@ -51,7 +53,9 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER, gui=DEFAULT_
 
     if not multiagent:
         train_env = make_vec_env(HoverAviary,
-                                 env_kwargs=dict(obs=DEFAULT_OBS, act=DEFAULT_ACT),
+                                 env_kwargs=dict(obs=DEFAULT_OBS, act=DEFAULT_ACT,
+                                                 initial_xyzs=np.array([[0, 0, 1]]),
+                                                 target_pos=np.array([0, 1, 1])),
                                  n_envs=1,
                                  seed=0
                                  )
@@ -69,16 +73,43 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER, gui=DEFAULT_
     print('[INFO] Observation space:', train_env.observation_space)
 
     #### Train the model #######################################
-    model = PPO('MlpPolicy',
+    # policy_kwargs = dict(net_arch=[256, 256, 128, 64])
+    # model = PPO('MlpPolicy',
+    #             train_env,
+    #             tensorboard_log=filename+'/tb/',
+    #             verbose=1,
+    #             seed=10281991,
+    #             clip_range=0.2,
+    #             # use_sde=True,
+    #             vf_coef=1.25,
+    #             # n_steps=2048,  # typical
+    #             # n_epochs=10,
+    #             # learning_rate=2.5e-4, #adjusted
+    #             # ideas: value coefficient larger
+    #             # ent_coef=0.1,
+    #             policy_kwargs=policy_kwargs)
+
+    policy_kwargs = dict(net_arch=[128, 128, 128, 64], lstm_hidden_size=32)
+    model = RecurrentPPO('MlpLstmPolicy',
                 train_env,
-                # tensorboard_log=filename+'/tb/',
-                verbose=1)
+                tensorboard_log=filename+'/tb/',
+                verbose=1,
+                seed=10281991,
+                clip_range=0.2,
+                # use_sde=True,
+                vf_coef=1.25,
+                # n_steps=2048,  # typical
+                # n_epochs=10,
+                # learning_rate=2.5e-4, #adjusted
+                # ideas: value coefficient larger
+                # ent_coef=0.1,
+                policy_kwargs=policy_kwargs)
 
     #### Target cumulative rewards (problem-dependent) ##########
     if DEFAULT_ACT == ActionType.ONE_D_RPM:
         target_reward = 474.15 if not multiagent else 949.5
     else:
-        target_reward = 467. if not multiagent else 920.
+        target_reward = 467. if not multiagent else 920. # 467
     callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=target_reward,
                                                      verbose=1)
     eval_callback = EvalCallback(eval_env,
@@ -107,6 +138,8 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER, gui=DEFAULT_
     ############################################################
     ############################################################
     ############################################################
+
+    # filename = os.path.join(output_folder, "save-01.29.2024_23.06.02")
 
     if local:
         input("Press Enter to continue...")

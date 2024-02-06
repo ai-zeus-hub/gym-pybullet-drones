@@ -263,7 +263,7 @@ class BaseAviary(gym.Env):
     ################################################################################
 
     def step(self,
-             action
+             action: np.array
              ):
         """Advances the environment by one simulation step.
 
@@ -294,6 +294,8 @@ class BaseAviary(gym.Env):
             in each subclass for its format.
 
         """
+        action = np.reshape(action, self.action_space.shape)
+
         #### Save PNG video frames if RECORD=True and GUI=False ####
         if self.RECORD and not self.GUI and self.step_counter%self.CAPTURE_FREQ == 0:
             [w, h, rgb, dep, seg] = p.getCameraImage(width=self.VID_WIDTH,
