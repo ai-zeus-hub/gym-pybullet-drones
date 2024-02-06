@@ -47,14 +47,15 @@ DEFAULT_MA = False
 
 def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER, gui=DEFAULT_GUI, plot=True, colab=DEFAULT_COLAB, record_video=DEFAULT_RECORD_VIDEO, local=True):
 
-    filename = os.path.join(output_folder, 'save-'+datetime.now().strftime("%m.%d.%Y_%H.%M.%S"))
+    # filename = os.path.join(output_folder, 'save-'+datetime.now().strftime("%m.%d.%Y_%H.%M.%S"))
+    filename = os.path.join(output_folder, 'save-latest')
     if not os.path.exists(filename):
         os.makedirs(filename+'/')
 
     if not multiagent:
         train_env = make_vec_env(HoverAviary,
                                  env_kwargs=dict(obs=DEFAULT_OBS, act=DEFAULT_ACT,
-                                                 initial_xyzs=np.array([[0, 0, 1]]),
+                                                 initial_xyzs=np.array([[0, 0, 0]]),
                                                  target_pos=np.array([0, 1, 1])),
                                  n_envs=1,
                                  seed=0
@@ -73,24 +74,8 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER, gui=DEFAULT_
     print('[INFO] Observation space:', train_env.observation_space)
 
     #### Train the model #######################################
-    # policy_kwargs = dict(net_arch=[256, 256, 128, 64])
-    # model = PPO('MlpPolicy',
-    #             train_env,
-    #             tensorboard_log=filename+'/tb/',
-    #             verbose=1,
-    #             seed=10281991,
-    #             clip_range=0.2,
-    #             # use_sde=True,
-    #             vf_coef=1.25,
-    #             # n_steps=2048,  # typical
-    #             # n_epochs=10,
-    #             # learning_rate=2.5e-4, #adjusted
-    #             # ideas: value coefficient larger
-    #             # ent_coef=0.1,
-    #             policy_kwargs=policy_kwargs)
-
-    policy_kwargs = dict(net_arch=[128, 128, 128, 64], lstm_hidden_size=32)
-    model = RecurrentPPO('MlpLstmPolicy',
+    policy_kwargs = dict(net_arch=[256, 256, 128, 64])
+    model = PPO('MlpPolicy',
                 train_env,
                 tensorboard_log=filename+'/tb/',
                 verbose=1,
@@ -105,11 +90,27 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER, gui=DEFAULT_
                 # ent_coef=0.1,
                 policy_kwargs=policy_kwargs)
 
+    # policy_kwargs = dict(net_arch=[128, 128, 128, 64], lstm_hidden_size=8)
+    # model = RecurrentPPO('MlpLstmPolicy',
+    #             train_env,
+    #             tensorboard_log=filename+'/tb/',
+    #             verbose=1,
+    #             seed=10281991,
+    #             clip_range=0.2,
+    #             # use_sde=True,
+    #             vf_coef=1.25,
+    #             # n_steps=2048,  # typical
+    #             # n_epochs=10,
+    #             # learning_rate=2.5e-4, #adjusted
+    #             # ideas: value coefficient larger
+    #             # ent_coef=0.1,
+    #             policy_kwargs=policy_kwargs)
+
     #### Target cumulative rewards (problem-dependent) ##########
     if DEFAULT_ACT == ActionType.ONE_D_RPM:
         target_reward = 474.15 if not multiagent else 949.5
     else:
-        target_reward = 467. if not multiagent else 920. # 467
+        target_reward = 440. if not multiagent else 920. # 467
     callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=target_reward,
                                                      verbose=1)
     eval_callback = EvalCallback(eval_env,
