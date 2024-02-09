@@ -51,7 +51,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
         local=True, episode_len=DEFAULT_EPISODE_LEN):
 
     # filename = os.path.join(output_folder, 'save-'+datetime.now().strftime("%m.%d.%Y_%H.%M.%S"))
-    filename = os.path.join(output_folder, 'save-latest')
+    filename = os.path.join(output_folder, 'move_011_vel_128_128_128_64_vf_125')
     if not os.path.exists(filename):
         os.makedirs(filename+'/')
 
@@ -60,7 +60,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                                  env_kwargs=dict(obs=DEFAULT_OBS, act=DEFAULT_ACT,
                                                  episode_len=episode_len,
                                                  initial_xyzs=np.array([[0, 0, 0]]),
-                                                 target_pos=np.array([0, 2, 1])),
+                                                 target_pos=np.array([0, 1, 1])),
                                  n_envs=1,
                                  seed=0
                                  )
