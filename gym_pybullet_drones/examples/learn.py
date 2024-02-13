@@ -41,9 +41,10 @@ DEFAULT_OUTPUT_FOLDER = 'results'
 DEFAULT_COLAB = False
 
 DEFAULT_OBS = ObservationType('kin') # 'kin' or 'rgb'
-DEFAULT_ACT = ActionType('vel') # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
+DEFAULT_ACT = ActionType('rpm') # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
 DEFAULT_AGENTS = 2
 DEFAULT_MA = False
+# DEFAULT_EPISODE_LEN=8
 DEFAULT_EPISODE_LEN=12
 
 def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
@@ -51,20 +52,25 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
         local=True, episode_len=DEFAULT_EPISODE_LEN):
 
     # filename = os.path.join(output_folder, 'save-'+datetime.now().strftime("%m.%d.%Y_%H.%M.%S"))
-    filename = os.path.join(output_folder, 'move_011_vel_128_128_128_64_vf_125')
+    # filename = os.path.join(output_folder, 'move_011_vel_128_128_128_64_vf_125')
+    filename = os.path.join(output_folder, 'save-latest')
     if not os.path.exists(filename):
         os.makedirs(filename+'/')
 
     if not multiagent:
+        # initial_xyz = np.array([[0, 0, 0]])
+        target_pos = np.array([0, 0, 1])
         train_env = make_vec_env(HoverAviary,
-                                 env_kwargs=dict(obs=DEFAULT_OBS, act=DEFAULT_ACT,
+                                 env_kwargs=dict(obs=DEFAULT_OBS,
+                                                 act=DEFAULT_ACT,
                                                  episode_len=episode_len,
-                                                 initial_xyzs=np.array([[0, 0, 0]]),
-                                                 target_pos=np.array([0, 1, 1])),
+                                                 target_pos=target_pos),
                                  n_envs=1,
-                                 seed=0
-                                 )
-        eval_env = HoverAviary(obs=DEFAULT_OBS, act=DEFAULT_ACT)
+                                 seed=0)
+        eval_env = HoverAviary(obs=DEFAULT_OBS,
+                               act=DEFAULT_ACT,
+                               episode_len=episode_len,
+                               target_pos=target_pos)
     else:
         train_env = make_vec_env(MultiHoverAviary,
                                  env_kwargs=dict(num_drones=DEFAULT_AGENTS, obs=DEFAULT_OBS, act=DEFAULT_ACT),
@@ -78,7 +84,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
     print('[INFO] Observation space:', train_env.observation_space)
 
     ### Train the model #######################################
-    policy_kwargs = dict(net_arch=[256, 256, 128, 64])
+    policy_kwargs = dict(net_arch=[128, 128, 128, 64])
     model = PPO('MlpPolicy',
                 train_env,
                 tensorboard_log=filename+'/tb/',
@@ -87,6 +93,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                 clip_range=0.2,
                 # use_sde=True,
                 vf_coef=1.25,
+                # vf_coef=1.0,
                 # n_steps=2048,  # typical
                 # n_epochs=10,
                 # learning_rate=2.5e-4, #adjusted
@@ -94,7 +101,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                 # ent_coef=0.1,
                 policy_kwargs=policy_kwargs)
 
-    # policy_kwargs = dict(net_arch=[128, 128, 128, 64], lstm_hidden_size=4)
+    # policy_kwargs = dict(net_arch=[128, 128, 128, 64], lstm_hidden_size=1)
     # model = RecurrentPPO('MlpLstmPolicy',
     #             train_env,
     #             tensorboard_log=filename+'/tb/',
@@ -114,7 +121,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
     if DEFAULT_ACT == ActionType.ONE_D_RPM:
         target_reward = 474.15 if not multiagent else 949.5
     else:
-        target_reward = 440. if not multiagent else 920. # 467
+        target_reward = 467. if not multiagent else 920. # 467
     callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=target_reward,
                                                      verbose=1)
     eval_callback = EvalCallback(eval_env,
@@ -143,8 +150,6 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
     ############################################################
     ############################################################
     ############################################################
-
-    # filename = os.path.join(output_folder, "save-01.29.2024_23.06.02")
 
     if local:
         input("Press Enter to continue...")

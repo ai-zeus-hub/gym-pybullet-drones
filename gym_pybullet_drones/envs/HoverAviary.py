@@ -3,24 +3,25 @@ import numpy as np
 from gym_pybullet_drones.envs.BaseRLAviary import BaseRLAviary
 from gym_pybullet_drones.utils.enums import DroneModel, Physics, ActionType, ObservationType
 
+
 class HoverAviary(BaseRLAviary):
     """Single agent RL problem: hover at position."""
 
     ################################################################################
-    
+
     def __init__(self,
-                 drone_model: DroneModel=DroneModel.CF2X,
+                 drone_model: DroneModel = DroneModel.CF2X,
                  initial_xyzs=None,
                  initial_rpys=None,
-                 physics: Physics=Physics.PYB,
+                 physics: Physics = Physics.PYB,
                  pyb_freq: int = 240,
                  ctrl_freq: int = 30,
                  gui=False,
                  record=False,
-                 obs: ObservationType=ObservationType.KIN,
-                 act: ActionType=ActionType.RPM,
-                 target_pos = None,
-                 episode_len = 8,
+                 obs: ObservationType = ObservationType.KIN,
+                 act: ActionType = ActionType.RPM,
+                 episode_len: int = 8,
+                 target_pos: np.array = np.array([0, 0, 1])
                  ):
         """Initialization of a single agent RL environment.
 
@@ -47,11 +48,10 @@ class HoverAviary(BaseRLAviary):
         obs : ObservationType, optional
             The type of observation space (kinematic information or vision)
         act : ActionType, optional
-            The type of action space (1 or 3D; RPMS, thrust and torques, or waypoint with PID control)
+            The type of action space (1 or 3D; RPMS, thurst and torques, or waypoint with PID control)
 
         """
-        self.TARGET_POS = np.array([0, 0, 1]) if target_pos is None else target_pos
-
+        self.TARGET_POS = target_pos
         self.EPISODE_LEN_SEC = episode_len
         super().__init__(drone_model=drone_model,
                          num_drones=1,
@@ -67,7 +67,7 @@ class HoverAviary(BaseRLAviary):
                          )
 
     ################################################################################
-    
+
     def _computeReward(self):
         """Computes the current reward value.
 
@@ -78,11 +78,11 @@ class HoverAviary(BaseRLAviary):
 
         """
         state = self._getDroneStateVector(0)
-        ret = max(0, 2 - np.linalg.norm(self.TARGET_POS-state[0:3])**4)
+        ret = max(0, 2 - np.linalg.norm(self.TARGET_POS - state[0:3]) ** 4)
         return ret
 
     ################################################################################
-    
+
     def _computeTerminated(self):
         """Computes the current done value.
 
@@ -93,13 +93,13 @@ class HoverAviary(BaseRLAviary):
 
         """
         state = self._getDroneStateVector(0)
-        if np.linalg.norm(self.TARGET_POS-state[0:3]) < .0001:
+        if np.linalg.norm(self.TARGET_POS - state[0:3]) < .0001:
             return True
         else:
             return False
-        
+
     ################################################################################
-    
+
     def _computeTruncated(self):
         """Computes the current truncated value.
 
@@ -109,14 +109,21 @@ class HoverAviary(BaseRLAviary):
             Whether the current episode timed out.
 
         """
-        state = self._getDroneStateVector(0)
-        # if (abs(state[0]) > 1.5 or abs(state[1]) > 1.5 or state[2] > 2.0 # Truncate when the drone is too far away
-        #      or abs(state[7]) > .4 or abs(state[8]) > .4 # Truncate when the drone is too tilted
+        # state = self._getDroneStateVector(0)
+        # if (abs(state[0]) > 1.5 or abs(state[1]) > 1.5 or state[2] > 2.0  # Truncate when the drone is too far away
+        #         or abs(state[7]) > .4 or abs(state[8]) > .4  # Truncate when the drone is too tilted
         # ):
-        if (abs(state[0] - self.TARGET_POS[0]) > 1.5 or 
-            abs(state[1] - self.TARGET_POS[1]) > 1.5 or
-            state[2] > self.TARGET_POS[2] + 1.0 or       # Truncate when the drone is too far away
-            abs(state[7]) > .4 or abs(state[8]) > .4     # Truncate when the drone is too tilted
+        #     return True
+        # if self.step_counter / self.PYB_FREQ > self.EPISODE_LEN_SEC:
+        #     return True
+        # else:
+        #     return False
+        state = self._getDroneStateVector(0)
+        if ((abs(state[0] - self.TARGET_POS[0]) > 1.5) or
+            (abs(state[1] - self.TARGET_POS[1]) > 1.5) or
+            (state[2] > (self.TARGET_POS[2] + 1.0)) or       # Truncate when the drone is too far away
+            (abs(state[7]) > .4) or
+            (abs(state[8]) > .4)     # Truncate when the drone is too tilted
         ):
             return True
         if self.step_counter/self.PYB_FREQ > self.EPISODE_LEN_SEC:
@@ -125,7 +132,7 @@ class HoverAviary(BaseRLAviary):
             return False
 
     ################################################################################
-    
+
     def _computeInfo(self):
         """Computes the current info dict(s).
 
@@ -137,4 +144,4 @@ class HoverAviary(BaseRLAviary):
             Dummy value.
 
         """
-        return {"answer": 42} #### Calculated by the Deep Thought supercomputer in 7.5M years
+        return {"answer": 42}  #### Calculated by the Deep Thought supercomputer in 7.5M years
