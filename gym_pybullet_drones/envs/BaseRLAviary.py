@@ -69,6 +69,8 @@ class BaseRLAviary(BaseAviary):
         vision_attributes = True if obs == ObservationType.RGB else False
         self.OBS_TYPE = obs
         self.ACT_TYPE = act
+
+        self.DISCRETE_MAX = 16
         #### Create integrated controllers #########################
         if act in [ActionType.PID, ActionType.VEL, ActionType.ONE_D_PID]:
             os.environ['KMP_DUPLICATE_LIB_OK']='True'
@@ -138,7 +140,7 @@ class BaseRLAviary(BaseAviary):
             A Box of size NUM_DRONES x 4, 3, or 1, depending on the action type.
 
         """
-        if self.ACT_TYPE in [ActionType.RPM, ActionType.VEL]:
+        if self.ACT_TYPE in [ActionType.RPM, ActionType.VEL, ActionType.DISC_RPM]:
             size = 4
         elif self.ACT_TYPE==ActionType.PID:
             size = 3
@@ -147,12 +149,19 @@ class BaseRLAviary(BaseAviary):
         else:
             print("[ERROR] in BaseRLAviary._actionSpace()")
             exit()
-        act_lower_bound = np.array([-1*np.ones(size) for i in range(self.NUM_DRONES)])
-        act_upper_bound = np.array([+1*np.ones(size) for i in range(self.NUM_DRONES)])
-        #
+        
         for i in range(self.ACTION_BUFFER_SIZE):
             self.action_buffer.append(np.zeros((self.NUM_DRONES,size)))
-        #
+
+        if self.ACT_TYPE == ActionType.DISC_RPM:
+            # shape = np.array([self.DISCRETE_MAX * np.ones(size) for i in range(self.NUM_DRONES)])
+            shape = [
+                self.DISCRETE_MAX, self.DISCRETE_MAX, self.DISCRETE_MAX, self.DISCRETE_MAX
+            ]
+            return spaces.MultiDiscrete(shape)
+
+        act_lower_bound = np.array([-1*np.ones(size) for i in range(self.NUM_DRONES)])
+        act_upper_bound = np.array([+1*np.ones(size) for i in range(self.NUM_DRONES)])
         return spaces.Box(low=act_lower_bound, high=act_upper_bound, dtype=np.float32)
 
     ################################################################################
@@ -184,11 +193,15 @@ class BaseRLAviary(BaseAviary):
             commanded to the 4 motors of each drone.
 
         """
+        action = np.reshape(action, (self.NUM_DRONES, 4))  # todo: ajr - not generic and hacky
         self.action_buffer.append(action)
         rpm = np.zeros((self.NUM_DRONES,4))
         for k in range(action.shape[0]):
             target = action[k, :]
             if self.ACT_TYPE == ActionType.RPM:
+                rpm[k,:] = np.array(self.HOVER_RPM * (1+0.05*target))
+            elif self.ACT_TYPE == ActionType.DISC_RPM:
+                target = (((target / self.DISCRETE_MAX) * 2) - 1)
                 rpm[k,:] = np.array(self.HOVER_RPM * (1+0.05*target))
             elif self.ACT_TYPE == ActionType.PID:
                 state = self._getDroneStateVector(k)
@@ -265,7 +278,7 @@ class BaseRLAviary(BaseAviary):
             act_lo = -1
             act_hi = +1
             for i in range(self.ACTION_BUFFER_SIZE):
-                if self.ACT_TYPE in [ActionType.RPM, ActionType.VEL]:
+                if self.ACT_TYPE in [ActionType.RPM, ActionType.VEL, ActionType.DISC_RPM]:
                     obs_lower_bound = np.hstack([obs_lower_bound, np.array([[act_lo,act_lo,act_lo,act_lo] for i in range(self.NUM_DRONES)])])
                     obs_upper_bound = np.hstack([obs_upper_bound, np.array([[act_hi,act_hi,act_hi,act_hi] for i in range(self.NUM_DRONES)])])
                 elif self.ACT_TYPE==ActionType.PID:
