@@ -43,26 +43,42 @@ DEFAULT_OUTPUT_FOLDER = 'results'
 DEFAULT_COLAB = False
 
 DEFAULT_OBS = ObservationType('kin') # 'kin' or 'rgb'
-DEFAULT_ACT = ActionType('rpm') # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
+DEFAULT_ACT = ActionType('pid') # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
 # DEFAULT_ACT = ActionType('disc_rpm') # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
 DEFAULT_AGENTS = 2
 DEFAULT_MA = False
 # DEFAULT_EPISODE_LEN=8
 DEFAULT_EPISODE_LEN=12
 
+
+def piecewise_lr_schedule(a: float) -> float:
+    if a >= 0.75:
+        return 0.0005
+    elif a >= 0.5:
+        return 0.0004
+    elif a >= 0.25:
+        return 0.0003
+    else:
+        return 0.0002
+
+
+def linear_lr_schedule(remaining_percent: float) -> float:
+    lr_max = 0.0005
+    lr_min = 0.0002
+    lr_diff = lr_max - lr_min
+    return lr_min + remaining_percent * lr_diff
+
+
 def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
         gui=DEFAULT_GUI, plot=True, colab=DEFAULT_COLAB, record_video=DEFAULT_RECORD_VIDEO,
         local=True, episode_len=DEFAULT_EPISODE_LEN):
 
     # filename = os.path.join(output_folder, 'save-'+datetime.now().strftime("%m.%d.%Y_%H.%M.%S"))
-    # filename = os.path.join(output_folder, 'move_011_vel_128_128_128_64_vf_125')
-    # filename = os.path.join(output_folder, 'hover_011_rpm_256_256_128_succesful')
     filename = os.path.join(output_folder, 'save-latest')
     if not os.path.exists(filename):
         os.makedirs(filename+'/')
 
     if not multiagent:
-        # initial_xyz = np.array([[0, 0, 0]])
         target_pos = np.array([0, 1, 1])
         train_env = make_vec_env(HoverAviary,
                                  env_kwargs=dict(obs=DEFAULT_OBS,
@@ -75,20 +91,6 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                                act=DEFAULT_ACT,
                                episode_len=episode_len,
                                target_pos=target_pos)
-        # train_env = VecFrameStack(make_vec_env(HoverAviary,
-        #                           env_kwargs=dict(obs=DEFAULT_OBS,
-        #                                           act=DEFAULT_ACT,
-        #                                           episode_len=episode_len,
-        #                                           target_pos=target_pos),
-        #                           n_envs=1,
-        #                           seed=0),
-        #                           n_stack=1)
-        # eval_env = HoverAviary(obs=DEFAULT_OBS,
-        #                        act=DEFAULT_ACT,
-        #                        episode_len=episode_len,
-        #                        target_pos=target_pos)
-
-        # VecFrameStack
     else:
         train_env = make_vec_env(MultiHoverAviary,
                                  env_kwargs=dict(num_drones=DEFAULT_AGENTS, obs=DEFAULT_OBS, act=DEFAULT_ACT),
@@ -103,8 +105,10 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
 
     ### Train the model #######################################
     policy_kwargs = dict(net_arch=[256, 128, 128],
-                         share_features_extractor=False)  # , activation_fn=torch.nn.ReLU)
-    ActorCriticPolicy
+                         share_features_extractor=False)
+
+
+    # ActorCriticPolicy
     model = PPO('MlpPolicy',
                 train_env,
                 tensorboard_log=filename+'/tb/',
@@ -115,7 +119,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                 # omni settings
                 # n_steps=64,
                 batch_size=16,
-                learning_rate=0.0005,
+                learning_rate=piecewise_lr_schedule,  # 0.0005,
                 n_epochs=4,
                 ent_coef=0.001,
                 max_grad_norm=10.0,
@@ -141,7 +145,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
     if DEFAULT_ACT == ActionType.ONE_D_RPM:
         target_reward = 474.15 if not multiagent else 949.5
     else:
-        target_reward = 467. * 4 if not multiagent else 920. # 467
+        target_reward = 467. * 4 if not multiagent else 920.  # 467.
     callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=target_reward,
                                                      verbose=1)
     eval_callback = EvalCallback(eval_env,

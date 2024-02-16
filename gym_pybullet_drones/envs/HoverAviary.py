@@ -78,7 +78,13 @@ class HoverAviary(BaseRLAviary):
 
         """
         state = self._getDroneStateVector(0)
-        ret = max(0, 5 - np.linalg.norm(self.TARGET_POS - state[0:3]) ** 2)
+        # ret = max(0, 2 - np.linalg.norm(self.TARGET_POS - state[0:3]) ** 4)
+
+        max_reward = 5
+        max_reward_distance = 3
+        min_reward = 0  # max_reward - (max_reward_distance ** 2)
+        distance_from_target = np.linalg.norm(self.TARGET_POS - state[0:3])
+        ret = max(min_reward, max_reward - (distance_from_target ** 2))
         return ret
 
     ################################################################################
