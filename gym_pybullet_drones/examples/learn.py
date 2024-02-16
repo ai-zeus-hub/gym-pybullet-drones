@@ -44,14 +44,29 @@ DEFAULT_COLAB = False
 
 DEFAULT_OBS = ObservationType('kin') # 'kin' or 'rgb'
 DEFAULT_ACT = ActionType('pid') # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
-# DEFAULT_ACT = ActionType('disc_rpm') # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
 DEFAULT_AGENTS = 2
 DEFAULT_MA = False
 # DEFAULT_EPISODE_LEN=8
-DEFAULT_EPISODE_LEN=12
+DEFAULT_EPISODE_LEN=12  # usually 8
 
 
-def piecewise_lr_schedule(a: float) -> float:
+# policy_kwargs = dict(net_arch=[128, 128, 128, 64], lstm_hidden_size=1)
+# model = RecurrentPPO('MlpLstmPolicy',
+#             train_env,
+#             tensorboard_log=filename+'/tb/',
+#             verbose=1,
+#             seed=10281991,
+#             clip_range=0.2,
+#             # use_sde=True,
+#             vf_coef=1.25,
+#             # n_steps=2048,  # typical
+#             # n_epochs=10,
+#             # learning_rate=2.5e-4, #adjusted
+#             # ideas: value coefficient larger
+#             # ent_coef=0.1,
+#             policy_kwargs=policy_kwargs)
+
+def piecewise_lr_schedule(a: float) -> float:  # designed for 400k
     if a >= 0.75:
         return 0.0005
     elif a >= 0.5:
@@ -79,7 +94,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
         os.makedirs(filename+'/')
 
     if not multiagent:
-        target_pos = np.array([0, 1, 1])
+        target_pos = np.array([1, 1, 1])
         train_env = make_vec_env(HoverAviary,
                                  env_kwargs=dict(obs=DEFAULT_OBS,
                                                  act=DEFAULT_ACT,
@@ -109,12 +124,13 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
 
 
     # ActorCriticPolicy
+    run_description = "PPO_PID_tar111_arch256_256_128_trunk1.5_dist^4_md5_0"
     model = PPO('MlpPolicy',
                 train_env,
                 tensorboard_log=filename+'/tb/',
                 verbose=1,
                 seed=10281991,
-                clip_range=0.2,
+                clip_range=0.2,  # 0.1 will be slower but more steady. 0.2 default
                 vf_coef=1.25,
                 # omni settings
                 # n_steps=64,
@@ -125,27 +141,11 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                 max_grad_norm=10.0,
                 policy_kwargs=policy_kwargs)
 
-    # policy_kwargs = dict(net_arch=[128, 128, 128, 64], lstm_hidden_size=1)
-    # model = RecurrentPPO('MlpLstmPolicy',
-    #             train_env,
-    #             tensorboard_log=filename+'/tb/',
-    #             verbose=1,
-    #             seed=10281991,
-    #             clip_range=0.2,
-    #             # use_sde=True,
-    #             vf_coef=1.25,
-    #             # n_steps=2048,  # typical
-    #             # n_epochs=10,
-    #             # learning_rate=2.5e-4, #adjusted
-    #             # ideas: value coefficient larger
-    #             # ent_coef=0.1,
-    #             policy_kwargs=policy_kwargs)
-
     #### Target cumulative rewards (problem-dependent) ##########
     if DEFAULT_ACT == ActionType.ONE_D_RPM:
         target_reward = 474.15 if not multiagent else 949.5
     else:
-        target_reward = 467. * 4 if not multiagent else 920.  # 467.
+        target_reward = 1700  # 467. * 4 if not multiagent else 920.  # 467.
     callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=target_reward,
                                                      verbose=1)
     eval_callback = EvalCallback(eval_env,
@@ -156,9 +156,10 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                                  eval_freq=int(1000),
                                  deterministic=True,
                                  render=False)
-    model.learn(total_timesteps=400_000,  # int(1e7) if local else int(1e2), # shorter training in GitHub Actions pytest
+    model.learn(total_timesteps=300_000,  # int(1e7) if local else int(1e2), # shorter training in GitHub Actions pytest
                 callback=eval_callback,
-                log_interval=100)
+                log_interval=100,
+                tb_log_name=run_description)
 
     #### Save the model ########################################
     model.save(filename+'/final_model.zip')
@@ -222,7 +223,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
         obs, reward, terminated, truncated, info = test_env.step(action)
         obs2 = obs.squeeze()
         act2 = action.squeeze()
-        print("Obs:", obs, "\tAction", action, "\tReward:", reward, "\tTerminated:", terminated, "\tTruncated:", truncated)
+        # print("Obs:", obs, "\tAction", action, "\tReward:", reward, "\tTerminated:", terminated, "\tTruncated:", truncated)
         if DEFAULT_OBS == ObservationType.KIN:
             if not multiagent:
                 logger.log(drone=0,

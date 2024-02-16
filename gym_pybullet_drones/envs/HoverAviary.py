@@ -80,12 +80,16 @@ class HoverAviary(BaseRLAviary):
         state = self._getDroneStateVector(0)
         # ret = max(0, 2 - np.linalg.norm(self.TARGET_POS - state[0:3]) ** 4)
 
+        # max_reward = 5
+        # max_reward_distance = 3
+        # min_reward = 0  # max_reward - (max_reward_distance ** 2)
+        # distance_from_target = np.linalg.norm(self.TARGET_POS - state[0:3])
+        # ret = max(min_reward, max_reward - (distance_from_target ** 2))
+        # return ret
+
         max_reward = 5
-        max_reward_distance = 3
-        min_reward = 0  # max_reward - (max_reward_distance ** 2)
         distance_from_target = np.linalg.norm(self.TARGET_POS - state[0:3])
-        ret = max(min_reward, max_reward - (distance_from_target ** 2))
-        return ret
+        return max_reward - np.abs(distance_from_target ** 4)
 
     ################################################################################
 
@@ -115,19 +119,12 @@ class HoverAviary(BaseRLAviary):
             Whether the current episode timed out.
 
         """
-        # state = self._getDroneStateVector(0)
-        # if (abs(state[0]) > 1.5 or abs(state[1]) > 1.5 or state[2] > 2.0  # Truncate when the drone is too far away
-        #         or abs(state[7]) > .4 or abs(state[8]) > .4  # Truncate when the drone is too tilted
-        # ):
-        #     return True
-        # if self.step_counter / self.PYB_FREQ > self.EPISODE_LEN_SEC:
-        #     return True
-        # else:
-        #     return False
         state = self._getDroneStateVector(0)
-        if ((abs(state[0] - self.TARGET_POS[0]) > 1.5) or
-            (abs(state[1] - self.TARGET_POS[1]) > 1.5) or
-            (state[2] > (self.TARGET_POS[2] + 1.0)) or       # Truncate when the drone is too far away
+        self.trunk_xy = 5.0  # 1.5 usually
+        self.trunk_z = 1.0
+        if ((abs(state[0] - self.TARGET_POS[0]) > self.trunk_xy) or
+            (abs(state[1] - self.TARGET_POS[1]) > self.trunk_xy) or
+            (state[2] > (self.TARGET_POS[2] + self.trunk_z)) or       # Truncate when the drone is too far away
             (abs(state[7]) > .4) or
             (abs(state[8]) > .4)     # Truncate when the drone is too tilted
         ):
