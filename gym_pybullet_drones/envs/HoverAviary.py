@@ -21,7 +21,8 @@ class HoverAviary(BaseRLAviary):
                  obs: ObservationType = ObservationType.KIN,
                  act: ActionType = ActionType.RPM,
                  episode_len: int = 8,
-                 target_pos: np.array = np.array([0, 0, 1])
+                 waypoints: np.array = None,
+                 eval_mode: bool = False
                  ):
         """Initialization of a single agent RL environment.
 
@@ -48,10 +49,11 @@ class HoverAviary(BaseRLAviary):
         obs : ObservationType, optional
             The type of observation space (kinematic information or vision)
         act : ActionType, optional
-            The type of action space (1 or 3D; RPMS, thurst and torques, or waypoint with PID control)
+            The type of action space (1 or 3D; RPMS, thrust and torques, or waypoint with PID control)
 
         """
-        self.TARGET_POS = target_pos
+        self.waypoints = waypoints
+        self.waypoint_index = 0
         self.EPISODE_LEN_SEC = episode_len
         super().__init__(drone_model=drone_model,
                          num_drones=1,
@@ -87,9 +89,28 @@ class HoverAviary(BaseRLAviary):
         # ret = max(min_reward, max_reward - (distance_from_target ** 2))
         # return ret
 
+        # max_reward = 5
+        # target_pos = self.waypoints[self.waypoint_index]
+        # distance_from_target = np.linalg.norm(target_pos - state[0:3])
+        # return max_reward - np.abs(distance_from_target ** 4)
+
         max_reward = 5
-        distance_from_target = np.linalg.norm(self.TARGET_POS - state[0:3])
-        return max_reward - np.abs(distance_from_target ** 4)
+        target_pos = self.waypoints[self.waypoint_index]
+        distance_from_target = np.linalg.norm(target_pos - state[0:3])
+        distance_scale = -1.0
+
+        # return max_reward * np.exp(distance_scale * distance_from_target)
+        # return (10 * np.exp(distance_scale * distance_from_target)) - 5
+        return 5 * np.exp(distance_scale * distance_from_target)
+
+    ################################################################################
+
+    def waypointDistance(self) -> float:
+        state = self._getDroneStateVector(0)
+        target_waypoint = self.waypoints[self.waypoint_index]
+        distance_to_waypoint = np.linalg.norm(target_waypoint - state[0:3])
+        return distance_to_waypoint
+
 
     ################################################################################
 
@@ -102,11 +123,38 @@ class HoverAviary(BaseRLAviary):
             Whether the current episode is done.
 
         """
+        # state = self._getDroneStateVector(0)
+        # if np.linalg.norm(self.TARGET_POS - state[0:3]) < .0001:
+        #     return True
+        # else:
+        #     return False
+        terminated = False
+        if self._targetingFinalWaypoint():
+            if self._atWaypoint(self.waypoints.shape[0] - 1, threshold=0.0001):
+                terminated = True
+        return terminated
+
+    ################################################################################
+
+    def _targetingFinalWaypoint(self) -> bool:
+        last_waypoint_index = self.waypoints.shape[0] - 1
+        return self.waypoint_index == last_waypoint_index
+
+    ################################################################################
+
+    def _atWaypoint(self, waypoint_index, threshold=0.2) -> bool:
         state = self._getDroneStateVector(0)
-        if np.linalg.norm(self.TARGET_POS - state[0:3]) < .0001:
+        target_waypoint = self.waypoints[waypoint_index]
+        distance_to_waypoint = np.linalg.norm(target_waypoint - state[0:3])
+        if distance_to_waypoint <= threshold:
             return True
-        else:
-            return False
+        return False
+
+    ################################################################################
+
+    def _advanceWaypoint(self):
+        if not self._targetingFinalWaypoint():
+            self.waypoint_index += 1 if self._atWaypoint(self.waypoint_index) else 0
 
     ################################################################################
 
@@ -122,9 +170,11 @@ class HoverAviary(BaseRLAviary):
         state = self._getDroneStateVector(0)
         self.trunk_xy = 5.0  # 1.5 usually
         self.trunk_z = 1.0
-        if ((abs(state[0] - self.TARGET_POS[0]) > self.trunk_xy) or
-            (abs(state[1] - self.TARGET_POS[1]) > self.trunk_xy) or
-            (state[2] > (self.TARGET_POS[2] + self.trunk_z)) or       # Truncate when the drone is too far away
+
+        target_pos = self.waypoints[self.waypoint_index]
+        if ((abs(state[0] - target_pos[0]) > self.trunk_xy) or
+            (abs(state[1] - target_pos[1]) > self.trunk_xy) or
+            (state[2] > (target_pos[2] + self.trunk_z)) or       # Truncate when the drone is too far away
             (abs(state[7]) > .4) or
             (abs(state[8]) > .4)     # Truncate when the drone is too tilted
         ):
@@ -148,3 +198,16 @@ class HoverAviary(BaseRLAviary):
 
         """
         return {"answer": 42}  #### Calculated by the Deep Thought supercomputer in 7.5M years
+
+    # def step(self,
+    #          action: np.array
+    #          ):
+    #     ret = super().step(action)
+    #     self._advanceWaypoint()
+    #     return ret
+    #
+    # def reset(self,
+    #           seed : int = None,
+    #           options : dict = None):
+    #     self.waypoint_index = 0
+    #     return super().reset(seed, options)

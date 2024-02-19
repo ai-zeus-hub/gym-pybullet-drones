@@ -78,6 +78,8 @@ class Logger(object):
         # ang_vel_x,
         # ang_vel_y,
         # ang_vel_z
+        self.rewards = np.zeros((duration_sec * self.LOGGING_FREQ_HZ,))
+        self.distance = np.zeros((duration_sec * self.LOGGING_FREQ_HZ,))
 
     ################################################################################
 
@@ -85,7 +87,9 @@ class Logger(object):
             drone: int,
             timestamp,
             state,
-            control=np.zeros(12)
+            control=np.zeros(12),
+            reward: float=1.,
+            distance: float=-1.
             ):
         """Logs entries for a single simulation step, of a single drone.
 
@@ -109,6 +113,8 @@ class Logger(object):
             self.timestamps = np.concatenate((self.timestamps, np.zeros((self.NUM_DRONES, 1))), axis=1)
             self.states = np.concatenate((self.states, np.zeros((self.NUM_DRONES, 16, 1))), axis=2)
             self.controls = np.concatenate((self.controls, np.zeros((self.NUM_DRONES, 12, 1))), axis=2)
+            self.rewards = np.concatenate((self.rewards, np.zeros((1,))), axis=0)
+            self.distance = np.concatenate((self.distance, np.zeros((1,))), axis=0)
         #### Advance a counter is the matrices have overgrown it ###
         elif not self.PREALLOCATED_ARRAYS and self.timestamps.shape[1] > current_counter:
             current_counter = self.timestamps.shape[1] - 1
@@ -117,6 +123,8 @@ class Logger(object):
         #### Re-order the kinematic obs (of most Aviaries) #########
         self.states[drone, :, current_counter] = np.hstack([state[0:3], state[10:13], state[7:10], state[13:20]])
         self.controls[drone, :, current_counter] = control
+        self.rewards[current_counter] = reward
+        self.distance[current_counter] = distance
         self.counters[drone] = current_counter + 1
 
     ################################################################################
@@ -221,7 +229,7 @@ class Logger(object):
         """
         #### Loop over colors and line styles ######################
         plt.rc('axes', prop_cycle=(cycler('color', ['r', 'g', 'b', 'y']) + cycler('linestyle', ['-', '--', ':', '-.'])))
-        fig, axs = plt.subplots(10, 2)
+        fig, axs = plt.subplots(11, 2)
         t = np.arange(0, self.timestamps.shape[1] / self.LOGGING_FREQ_HZ, 1 / self.LOGGING_FREQ_HZ)
 
         #### Column ################################################
@@ -285,6 +293,12 @@ class Logger(object):
         axs[row, col].plot(t, t, label="time")
         axs[row, col].set_xlabel('time')
         axs[row, col].set_ylabel('time')
+
+        #### Reward ##################################################
+        row = 10
+        axs[row, col].plot(t, self.rewards, label="reward")
+        axs[row, col].set_xlabel('time')
+        axs[row, col].set_ylabel('reward')
 
         #### Column ################################################
         col = 1
@@ -366,6 +380,12 @@ class Logger(object):
             axs[row, col].set_ylabel('PWM3')
         else:
             axs[row, col].set_ylabel('RPM3')
+
+        #### Reward ##################################################
+        row = 10
+        axs[row, col].plot(t, self.distance, label="distance")
+        axs[row, col].set_xlabel('time')
+        axs[row, col].set_ylabel('distance')
 
         #### Drawing options #######################################
         for i in range(10):

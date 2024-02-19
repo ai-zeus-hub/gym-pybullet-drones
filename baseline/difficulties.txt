@@ -9,3 +9,7 @@ The baseline of gpd has used the default of PPO. I tried a number of different a
 
 Ultimately I got training HoverAviary to 155_000 steps, but was unable to learn to move across the x,y axis (e.g. [0, 1, 1]).
 Using the omni drone project as a guide for parameter tuning, I was able to vastly improve this, all the way down to 50_000 steps.
+
+
+Another issue was the default reward function used dist ** 4. This resulted in poor training when the distance was less than 1.0.
+To solved, I switched to the exponentiation function.

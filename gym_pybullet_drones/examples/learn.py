@@ -29,8 +29,6 @@ from stable_baselines3.common.vec_env import VecFrameStack
 from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnRewardThreshold
 from stable_baselines3.common.evaluation import evaluate_policy
 
-from sb3_contrib import RecurrentPPO
-
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.envs.HoverAviary import HoverAviary
 from gym_pybullet_drones.envs.MultiHoverAviary import MultiHoverAviary
@@ -49,23 +47,6 @@ DEFAULT_MA = False
 # DEFAULT_EPISODE_LEN=8
 DEFAULT_EPISODE_LEN=12  # usually 8
 
-
-# policy_kwargs = dict(net_arch=[128, 128, 128, 64], lstm_hidden_size=1)
-# model = RecurrentPPO('MlpLstmPolicy',
-#             train_env,
-#             tensorboard_log=filename+'/tb/',
-#             verbose=1,
-#             seed=10281991,
-#             clip_range=0.2,
-#             # use_sde=True,
-#             vf_coef=1.25,
-#             # n_steps=2048,  # typical
-#             # n_epochs=10,
-#             # learning_rate=2.5e-4, #adjusted
-#             # ideas: value coefficient larger
-#             # ent_coef=0.1,
-#             policy_kwargs=policy_kwargs)
-
 def piecewise_lr_schedule(a: float) -> float:  # designed for 400k
     if a >= 0.75:
         return 0.0005
@@ -83,6 +64,9 @@ def linear_lr_schedule(remaining_percent: float) -> float:
     lr_diff = lr_max - lr_min
     return lr_min + remaining_percent * lr_diff
 
+def constant_lr_schedule(remaining_percent: float) -> float:
+    return 0.0005
+
 
 def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
         gui=DEFAULT_GUI, plot=True, colab=DEFAULT_COLAB, record_video=DEFAULT_RECORD_VIDEO,
@@ -93,38 +77,35 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
     if not os.path.exists(filename):
         os.makedirs(filename+'/')
 
-    if not multiagent:
-        target_pos = np.array([1, 1, 1])
-        train_env = make_vec_env(HoverAviary,
-                                 env_kwargs=dict(obs=DEFAULT_OBS,
-                                                 act=DEFAULT_ACT,
-                                                 episode_len=episode_len,
-                                                 target_pos=target_pos),
-                                 n_envs=1,
-                                 seed=0)
-        eval_env = HoverAviary(obs=DEFAULT_OBS,
-                               act=DEFAULT_ACT,
-                               episode_len=episode_len,
-                               target_pos=target_pos)
-    else:
-        train_env = make_vec_env(MultiHoverAviary,
-                                 env_kwargs=dict(num_drones=DEFAULT_AGENTS, obs=DEFAULT_OBS, act=DEFAULT_ACT),
-                                 n_envs=1,
-                                 seed=0
-                                 )
-        eval_env = MultiHoverAviary(num_drones=DEFAULT_AGENTS, obs=DEFAULT_OBS, act=DEFAULT_ACT)
+    targets = np.array([[0, 1, 1]])
+    train_env = make_vec_env(HoverAviary,
+                             env_kwargs=dict(obs=DEFAULT_OBS,
+                                             act=DEFAULT_ACT,
+                                             episode_len=episode_len,
+                                             waypoints=targets),
+                             n_envs=1,
+                             seed=0)
+    eval_env = HoverAviary(obs=DEFAULT_OBS,
+                           act=DEFAULT_ACT,
+                           episode_len=episode_len,
+                           waypoints=targets)
 
     #### Check the environment's spaces ########################
     print('[INFO] Action space:', train_env.action_space)
     print('[INFO] Observation space:', train_env.observation_space)
 
     ### Train the model #######################################
-    policy_kwargs = dict(net_arch=[256, 128, 128],
+    arch = [256, 128, 128]
+    policy_kwargs = dict(net_arch=arch,
                          share_features_extractor=False)
 
-
     # ActorCriticPolicy
-    run_description = "PPO_PID_tar111_arch256_256_128_trunk1.5_dist^4_md5_0"
+    run_description = f"PPO-{str(DEFAULT_ACT).split('.')[1]} "\
+                      f"targets={targets.tolist()} "\
+                      f"{arch=} "\
+                      f"trunk=5 "\
+                      "lr=piecewise "\
+                      "modified_reward"
     model = PPO('MlpPolicy',
                 train_env,
                 tensorboard_log=filename+'/tb/',
@@ -135,17 +116,14 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                 # omni settings
                 # n_steps=64,
                 batch_size=16,
-                learning_rate=piecewise_lr_schedule,  # 0.0005,
+                learning_rate=piecewise_lr_schedule,
                 n_epochs=4,
                 ent_coef=0.001,
                 max_grad_norm=10.0,
                 policy_kwargs=policy_kwargs)
 
     #### Target cumulative rewards (problem-dependent) ##########
-    if DEFAULT_ACT == ActionType.ONE_D_RPM:
-        target_reward = 474.15 if not multiagent else 949.5
-    else:
-        target_reward = 1700  # 467. * 4 if not multiagent else 920.  # 467.
+    target_reward = 1_600  # 467. * 4 if not multiagent else 920.  # 467.
     callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=target_reward,
                                                      verbose=1)
     eval_callback = EvalCallback(eval_env,
@@ -188,20 +166,13 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
     model = PPO.load(path)
 
     #### Show (and record a video of) the model's performance ##
-    if not multiagent:
-        test_env = HoverAviary(gui=gui,
-                               obs=DEFAULT_OBS,
-                               act=DEFAULT_ACT,
-                               episode_len=episode_len,
-                               record=record_video)
-        test_env_nogui = HoverAviary(obs=DEFAULT_OBS, act=DEFAULT_ACT, episode_len=episode_len)
-    else:
-        test_env = MultiHoverAviary(gui=gui,
-                                        num_drones=DEFAULT_AGENTS,
-                                        obs=DEFAULT_OBS,
-                                        act=DEFAULT_ACT,
-                                        record=record_video)
-        test_env_nogui = MultiHoverAviary(num_drones=DEFAULT_AGENTS, obs=DEFAULT_OBS, act=DEFAULT_ACT)
+    test_env = HoverAviary(gui=gui,
+                           obs=DEFAULT_OBS,
+                           act=DEFAULT_ACT,
+                           episode_len=episode_len,
+                           waypoints=targets,
+                           record=record_video)
+    test_env_nogui = HoverAviary(obs=DEFAULT_OBS, act=DEFAULT_ACT, episode_len=episode_len, waypoints=targets)
     logger = Logger(logging_freq_hz=int(test_env.CTRL_FREQ),
                 num_drones=DEFAULT_AGENTS if multiagent else 1,
                 output_folder=output_folder,
@@ -225,32 +196,22 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
         act2 = action.squeeze()
         # print("Obs:", obs, "\tAction", action, "\tReward:", reward, "\tTerminated:", terminated, "\tTruncated:", truncated)
         if DEFAULT_OBS == ObservationType.KIN:
-            if not multiagent:
-                logger.log(drone=0,
-                    timestamp=i/test_env.CTRL_FREQ,
-                    state=np.hstack([obs2[0:3],
-                                        np.zeros(4),
-                                        obs2[3:15],
-                                        act2 # todo: ajr - np.resize(action, (4))? reward=reward
-                                        ]),
-                    control=np.zeros(12)
-                    )
-            else:
-                for d in range(DEFAULT_AGENTS):
-                    logger.log(drone=d,
-                        timestamp=i/test_env.CTRL_FREQ,
-                        state=np.hstack([obs2[d][0:3],
-                                            np.zeros(4),
-                                            obs2[d][3:15],
-                                            act2[d]
-                                            ]),
-                        control=np.zeros(12)
-                        )
+            logger.log(drone=0,
+                timestamp=i/test_env.CTRL_FREQ,
+                state=np.hstack([obs2[0:3],
+                                    np.zeros(4),
+                                    obs2[3:15],
+                                    act2 # todo: ajr - np.resize(action, (4))? reward=reward
+                                    ]),
+                control=np.zeros(12),
+                reward=reward,
+                distance=test_env.waypointDistance()
+                )
         test_env.render()
         print(terminated)
         sync(i, start, test_env.CTRL_TIMESTEP)
         if terminated:
-            obs = test_env.reset(seed=42, options={})
+            obs, info = test_env.reset(seed=42, options={})
     test_env.close()
 
     if plot and DEFAULT_OBS == ObservationType.KIN:
