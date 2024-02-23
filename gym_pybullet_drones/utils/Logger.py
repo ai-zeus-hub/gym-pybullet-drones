@@ -80,6 +80,7 @@ class Logger(object):
         # ang_vel_z
         self.rewards = np.zeros((duration_sec * self.LOGGING_FREQ_HZ,))
         self.distance = np.zeros((duration_sec * self.LOGGING_FREQ_HZ,))
+        self.wp_index = np.zeros((duration_sec * self.LOGGING_FREQ_HZ,))
 
     ################################################################################
 
@@ -89,7 +90,8 @@ class Logger(object):
             state,
             control=np.zeros(12),
             reward: float=1.,
-            distance: float=-1.
+            distance: float=-1.,
+            wp_index: int = -1
             ):
         """Logs entries for a single simulation step, of a single drone.
 
@@ -115,6 +117,7 @@ class Logger(object):
             self.controls = np.concatenate((self.controls, np.zeros((self.NUM_DRONES, 12, 1))), axis=2)
             self.rewards = np.concatenate((self.rewards, np.zeros((1,))), axis=0)
             self.distance = np.concatenate((self.distance, np.zeros((1,))), axis=0)
+            self.wp_index = np.concatenate((self.wp_index, np.zeros((1,))), axis=0)
         #### Advance a counter is the matrices have overgrown it ###
         elif not self.PREALLOCATED_ARRAYS and self.timestamps.shape[1] > current_counter:
             current_counter = self.timestamps.shape[1] - 1
@@ -125,6 +128,7 @@ class Logger(object):
         self.controls[drone, :, current_counter] = control
         self.rewards[current_counter] = reward
         self.distance[current_counter] = distance
+        self.wp_index[current_counter] = wp_index
         self.counters[drone] = current_counter + 1
 
     ################################################################################
@@ -229,7 +233,7 @@ class Logger(object):
         """
         #### Loop over colors and line styles ######################
         plt.rc('axes', prop_cycle=(cycler('color', ['r', 'g', 'b', 'y']) + cycler('linestyle', ['-', '--', ':', '-.'])))
-        fig, axs = plt.subplots(11, 2)
+        fig, axs = plt.subplots(12, 2)
         t = np.arange(0, self.timestamps.shape[1] / self.LOGGING_FREQ_HZ, 1 / self.LOGGING_FREQ_HZ)
 
         #### Column ################################################
@@ -294,11 +298,17 @@ class Logger(object):
         axs[row, col].set_xlabel('time')
         axs[row, col].set_ylabel('time')
 
-        #### Reward ##################################################
+        #### Reward #################################################
         row = 10
         axs[row, col].plot(t, self.rewards, label="reward")
         axs[row, col].set_xlabel('time')
         axs[row, col].set_ylabel('reward')
+
+        #### WP Index ###############################################
+        row = 11
+        axs[row, col].plot(t, self.wp_index, label="wp_index")
+        axs[row, col].set_xlabel('time')
+        axs[row, col].set_ylabel('wp_index')
 
         #### Column ################################################
         col = 1
@@ -388,7 +398,7 @@ class Logger(object):
         axs[row, col].set_ylabel('distance')
 
         #### Drawing options #######################################
-        for i in range(10):
+        for i in range(11):
             for j in range(2):
                 axs[i, j].grid(True)
                 axs[i, j].legend(loc='upper right',

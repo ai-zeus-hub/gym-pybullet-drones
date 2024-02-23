@@ -22,7 +22,7 @@ import argparse
 import gymnasium as gym
 import numpy as np
 import torch
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO, DQN
 from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecFrameStack
@@ -41,31 +41,35 @@ DEFAULT_OUTPUT_FOLDER = 'results'
 DEFAULT_COLAB = False
 
 DEFAULT_OBS = ObservationType('kin') # 'kin' or 'rgb'
-DEFAULT_ACT = ActionType('pid') # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
+DEFAULT_ACT = ActionType('vel') # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
 DEFAULT_AGENTS = 2
 DEFAULT_MA = False
 # DEFAULT_EPISODE_LEN=8
 DEFAULT_EPISODE_LEN=12  # usually 8
 
+MAX_LR = 0.0006
+
+
 def piecewise_lr_schedule(a: float) -> float:  # designed for 400k
     if a >= 0.75:
-        return 0.0005
+        return MAX_LR
     elif a >= 0.5:
-        return 0.0004
+        return MAX_LR - 0.0001
     elif a >= 0.25:
-        return 0.0003
+        return MAX_LR - 0.0002
     else:
-        return 0.0002
+        return MAX_LR - 0.0003
 
 
 def linear_lr_schedule(remaining_percent: float) -> float:
-    lr_max = 0.0005
-    lr_min = 0.0002
-    lr_diff = lr_max - lr_min
+    lr_max = MAX_LR
+    lr_diff = 0.0003
+    lr_min = lr_max - lr_diff
     return lr_min + remaining_percent * lr_diff
 
+
 def constant_lr_schedule(remaining_percent: float) -> float:
-    return 0.0005
+    return MAX_LR
 
 
 def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
@@ -77,7 +81,8 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
     if not os.path.exists(filename):
         os.makedirs(filename+'/')
 
-    targets = np.array([[0, 1, 1]])
+    # targets = np.array([[0, 0, 0.25], [0, 0, 0.5], [0, 0, 0.75], [0, 0, 1.]])
+    targets = np.array([[0, 0, 2.]])
     train_env = make_vec_env(HoverAviary,
                              env_kwargs=dict(obs=DEFAULT_OBS,
                                              act=DEFAULT_ACT,
@@ -103,27 +108,29 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
     run_description = f"PPO-{str(DEFAULT_ACT).split('.')[1]} "\
                       f"targets={targets.tolist()} "\
                       f"{arch=} "\
-                      f"trunk=5 "\
-                      "lr=piecewise "\
+                      f"lr=pw@{MAX_LR=}"\
                       "modified_reward"
     model = PPO('MlpPolicy',
                 train_env,
                 tensorboard_log=filename+'/tb/',
                 verbose=1,
                 seed=10281991,
-                clip_range=0.2,  # 0.1 will be slower but more steady. 0.2 default
+                clip_range=0.20,  # 0.1 will be slower but more steady. 0.2 default
                 vf_coef=1.25,
                 # omni settings
                 # n_steps=64,
                 batch_size=16,
-                learning_rate=piecewise_lr_schedule,
+                learning_rate=piecewise_lr_schedule(),
                 n_epochs=4,
-                ent_coef=0.001,
+                ent_coef=0.1,  # todo: try at 0.01, 0.1
                 max_grad_norm=10.0,
                 policy_kwargs=policy_kwargs)
 
+    # todo: ajr - read omni paper
+    # todo: ajr - other ppo implementations
+
     #### Target cumulative rewards (problem-dependent) ##########
-    target_reward = 1_600  # 467. * 4 if not multiagent else 920.  # 467.
+    target_reward = 2_000  # 467. * 4 if not multiagent else 920.  # 467.
     callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=target_reward,
                                                      verbose=1)
     eval_callback = EvalCallback(eval_env,
@@ -134,7 +141,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                                  eval_freq=int(1000),
                                  deterministic=True,
                                  render=False)
-    model.learn(total_timesteps=300_000,  # int(1e7) if local else int(1e2), # shorter training in GitHub Actions pytest
+    model.learn(total_timesteps=150_000,  # int(1e7) if local else int(1e2), # shorter training in GitHub Actions pytest
                 callback=eval_callback,
                 log_interval=100,
                 tb_log_name=run_description)
@@ -205,8 +212,10 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                                     ]),
                 control=np.zeros(12),
                 reward=reward,
-                distance=test_env.waypointDistance()
+                distance=test_env.waypointDistance(),
+                wp_index=test_env.wp_index()
                 )
+            test_env._advanceWaypoint()
         test_env.render()
         print(terminated)
         sync(i, start, test_env.CTRL_TIMESTEP)

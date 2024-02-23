@@ -101,7 +101,7 @@ class HoverAviary(BaseRLAviary):
 
         # return max_reward * np.exp(distance_scale * distance_from_target)
         # return (10 * np.exp(distance_scale * distance_from_target)) - 5
-        return 5 * np.exp(distance_scale * distance_from_target)
+        return max_reward * np.exp(distance_scale * distance_from_target)
 
     ################################################################################
 
@@ -142,7 +142,7 @@ class HoverAviary(BaseRLAviary):
 
     ################################################################################
 
-    def _atWaypoint(self, waypoint_index, threshold=0.2) -> bool:
+    def _atWaypoint(self, waypoint_index, threshold=0.1) -> bool:
         state = self._getDroneStateVector(0)
         target_waypoint = self.waypoints[waypoint_index]
         distance_to_waypoint = np.linalg.norm(target_waypoint - state[0:3])
@@ -154,7 +154,8 @@ class HoverAviary(BaseRLAviary):
 
     def _advanceWaypoint(self):
         if not self._targetingFinalWaypoint():
-            self.waypoint_index += 1 if self._atWaypoint(self.waypoint_index) else 0
+            if self._atWaypoint(self.waypoint_index):
+                self.waypoint_index += 1
 
     ################################################################################
 
@@ -169,7 +170,7 @@ class HoverAviary(BaseRLAviary):
         """
         state = self._getDroneStateVector(0)
         self.trunk_xy = 5.0  # 1.5 usually
-        self.trunk_z = 1.0
+        self.trunk_z = 1.0  # 1.0 usually
 
         target_pos = self.waypoints[self.waypoint_index]
         if ((abs(state[0] - target_pos[0]) > self.trunk_xy) or
@@ -199,15 +200,18 @@ class HoverAviary(BaseRLAviary):
         """
         return {"answer": 42}  #### Calculated by the Deep Thought supercomputer in 7.5M years
 
-    # def step(self,
-    #          action: np.array
-    #          ):
-    #     ret = super().step(action)
-    #     self._advanceWaypoint()
-    #     return ret
-    #
-    # def reset(self,
-    #           seed : int = None,
-    #           options : dict = None):
-    #     self.waypoint_index = 0
-    #     return super().reset(seed, options)
+    def wp_index(self):
+        return self.waypoint_index
+
+    def step(self,
+             action: np.array
+             ):
+        ret = super().step(action)
+        self._advanceWaypoint()
+        return ret
+
+    def reset(self,
+              seed : int = None,
+              options : dict = None):
+        self.waypoint_index = 0
+        return super().reset(seed, options)
