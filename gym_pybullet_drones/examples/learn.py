@@ -81,19 +81,15 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
     if not os.path.exists(filename):
         os.makedirs(filename+'/')
 
-    # targets = np.array([[0, 0, 0.25], [0, 0, 0.5], [0, 0, 0.75], [0, 0, 1.]])
-    targets = np.array([[0, 0, 2.]])
     train_env = make_vec_env(HoverAviary,
                              env_kwargs=dict(obs=DEFAULT_OBS,
                                              act=DEFAULT_ACT,
-                                             episode_len=episode_len,
-                                             waypoints=targets),
+                                             episode_len=episode_len),
                              n_envs=1,
                              seed=0)
     eval_env = HoverAviary(obs=DEFAULT_OBS,
                            act=DEFAULT_ACT,
-                           episode_len=episode_len,
-                           waypoints=targets)
+                           episode_len=episode_len)
 
     #### Check the environment's spaces ########################
     print('[INFO] Action space:', train_env.action_space)
@@ -107,7 +103,8 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
     # ActorCriticPolicy
     run_description = " ".join([
         f"PPO-{str(DEFAULT_ACT).split('.')[1]}",
-        f"targets={targets.tolist()}",
+        f"Lemniscate",
+        f"Action Buffer = 0",
         f"{arch=}",
         f"lr=const@{MAX_LR=}"
     ])
@@ -127,24 +124,6 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                 ent_coef=0.001,
                 max_grad_norm=10.0,
                 policy_kwargs=policy_kwargs)
-
-    # model = PPO('MlpPolicy',
-    #             train_env,
-    #             tensorboard_log=filename + '/tb/',
-    #             verbose=1,
-    #             seed=10281991,
-    #             # clip_range=0.20,  # 0.1 will be slower but more steady. 0.2 default
-    #             vf_coef=1.25,
-    #             # omni settings
-    #             # n_steps=64,
-    #             # batch_size=16,
-    #             learning_rate=piecewise_lr_schedule,
-    #             n_epochs=4,
-    #             ent_coef=0.001,
-    #             max_grad_norm=10.0,
-    #             policy_kwargs=policy_kwargs)
-
-    # todo: ajr - other ppo implementations
 
     #### Target cumulative rewards (problem-dependent) ##########
     target_reward = 2_000  # 467. * 4 if not multiagent else 920.  # 467.
@@ -194,9 +173,8 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                            obs=DEFAULT_OBS,
                            act=DEFAULT_ACT,
                            episode_len=episode_len,
-                           waypoints=targets,
                            record=record_video)
-    test_env_nogui = HoverAviary(obs=DEFAULT_OBS, act=DEFAULT_ACT, episode_len=episode_len, waypoints=targets)
+    test_env_nogui = HoverAviary(obs=DEFAULT_OBS, act=DEFAULT_ACT, episode_len=episode_len)
     logger = Logger(logging_freq_hz=int(test_env.CTRL_FREQ),
                 num_drones=DEFAULT_AGENTS if multiagent else 1,
                 output_folder=output_folder,
@@ -224,15 +202,13 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                 timestamp=i/test_env.CTRL_FREQ,
                 state=np.hstack([obs2[0:3],
                                     np.zeros(4),
-                                    obs2[3:15],
+                                    obs2[12:24],
                                     act2 # todo: ajr - np.resize(action, (4))? reward=reward
                                     ]),
                 control=np.zeros(12),
                 reward=reward,
-                distance=test_env.waypointDistance(),
-                wp_index=test_env.wp_index()
+                distance=test_env.distance_from_next_target(),
                 )
-            test_env._advanceWaypoint()
         test_env.render()
         print(terminated)
         sync(i, start, test_env.CTRL_TIMESTEP)
