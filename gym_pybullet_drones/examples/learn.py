@@ -22,7 +22,7 @@ import argparse
 import gymnasium as gym
 import numpy as np
 import torch
-from stable_baselines3 import PPO, DQN
+from stable_baselines3 import PPO, SAC, TD3, DDPG, A2C
 from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecFrameStack
@@ -45,7 +45,7 @@ DEFAULT_ACT = ActionType('vel') # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one
 DEFAULT_AGENTS = 2
 DEFAULT_MA = False
 # DEFAULT_EPISODE_LEN=8
-DEFAULT_EPISODE_LEN=12  # usually 8
+DEFAULT_EPISODE_LEN=8  # usually 8
 
 MAX_LR = 0.0006
 
@@ -100,33 +100,51 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
     print('[INFO] Observation space:', train_env.observation_space)
 
     ### Train the model #######################################
-    arch = [256, 128, 128]
+    arch = [256, 256, 256]
     policy_kwargs = dict(net_arch=arch,
                          share_features_extractor=False)
 
     # ActorCriticPolicy
-    run_description = f"PPO-{str(DEFAULT_ACT).split('.')[1]} "\
-                      f"targets={targets.tolist()} "\
-                      f"{arch=} "\
-                      f"lr=pw@{MAX_LR=}"\
-                      "modified_reward"
+    run_description = " ".join([
+        f"PPO-{str(DEFAULT_ACT).split('.')[1]}",
+        f"targets={targets.tolist()}",
+        f"{arch=}",
+        f"lr=pw@{MAX_LR=}",
+        "modified_reward"
+    ])
+
     model = PPO('MlpPolicy',
                 train_env,
                 tensorboard_log=filename+'/tb/',
                 verbose=1,
                 seed=10281991,
-                clip_range=0.20,  # 0.1 will be slower but more steady. 0.2 default
+                # clip_range=0.20,  # 0.1 will be slower but more steady. 0.2 default
                 vf_coef=1.25,
                 # omni settings
                 # n_steps=64,
-                batch_size=16,
-                learning_rate=piecewise_lr_schedule(),
+                # batch_size=16,
+                learning_rate=piecewise_lr_schedule,
                 n_epochs=4,
-                ent_coef=0.1,  # todo: try at 0.01, 0.1
+                ent_coef=0.001,
                 max_grad_norm=10.0,
                 policy_kwargs=policy_kwargs)
 
-    # todo: ajr - read omni paper
+    # model = PPO('MlpPolicy',
+    #             train_env,
+    #             tensorboard_log=filename + '/tb/',
+    #             verbose=1,
+    #             seed=10281991,
+    #             # clip_range=0.20,  # 0.1 will be slower but more steady. 0.2 default
+    #             vf_coef=1.25,
+    #             # omni settings
+    #             # n_steps=64,
+    #             # batch_size=16,
+    #             learning_rate=piecewise_lr_schedule,
+    #             n_epochs=4,
+    #             ent_coef=0.001,
+    #             max_grad_norm=10.0,
+    #             policy_kwargs=policy_kwargs)
+
     # todo: ajr - other ppo implementations
 
     #### Target cumulative rewards (problem-dependent) ##########
@@ -141,7 +159,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                                  eval_freq=int(1000),
                                  deterministic=True,
                                  render=False)
-    model.learn(total_timesteps=150_000,  # int(1e7) if local else int(1e2), # shorter training in GitHub Actions pytest
+    model.learn(total_timesteps=300_000,  # int(1e7) if local else int(1e2), # shorter training in GitHub Actions pytest
                 callback=eval_callback,
                 log_interval=100,
                 tb_log_name=run_description)

@@ -14,7 +14,7 @@ class HoverAviary(BaseRLAviary):
                  initial_xyzs=None,
                  initial_rpys=None,
                  physics: Physics = Physics.PYB,
-                 pyb_freq: int = 240,
+                 pyb_freq: int = 120,
                  ctrl_freq: int = 30,
                  gui=False,
                  record=False,
@@ -80,28 +80,25 @@ class HoverAviary(BaseRLAviary):
 
         """
         state = self._getDroneStateVector(0)
-        # ret = max(0, 2 - np.linalg.norm(self.TARGET_POS - state[0:3]) ** 4)
-
-        # max_reward = 5
-        # max_reward_distance = 3
-        # min_reward = 0  # max_reward - (max_reward_distance ** 2)
-        # distance_from_target = np.linalg.norm(self.TARGET_POS - state[0:3])
-        # ret = max(min_reward, max_reward - (distance_from_target ** 2))
-        # return ret
 
         # max_reward = 5
         # target_pos = self.waypoints[self.waypoint_index]
         # distance_from_target = np.linalg.norm(target_pos - state[0:3])
-        # return max_reward - np.abs(distance_from_target ** 4)
+        # distance_scale = -1.0
 
-        max_reward = 5
+        current_pos = state[0:3]
+        lin_vel = state[10:12]
+        ang_vel = state[13:15]
+
+        reward_distance_scale = 1.2
+
         target_pos = self.waypoints[self.waypoint_index]
-        distance_from_target = np.linalg.norm(target_pos - state[0:3])
-        distance_scale = -1.0
+        distance = np.linalg.norm(target_pos - current_pos)
+        # reward_pose = 1.0 / (1.0 + np.square(reward_distance_scale * distance))
+        reward_pose = np.exp(-distance * reward_distance_scale)
 
-        # return max_reward * np.exp(distance_scale * distance_from_target)
-        # return (10 * np.exp(distance_scale * distance_from_target)) - 5
-        return max_reward * np.exp(distance_scale * distance_from_target)
+        reward = reward_pose
+        return reward
 
     ################################################################################
 
@@ -128,9 +125,18 @@ class HoverAviary(BaseRLAviary):
         #     return True
         # else:
         #     return False
+        state = self._getDroneStateVector(0)
+        # self.trunk_xy = 5.0  # 1.5 usually
+        # self.trunk_z = 1.0  # 1.0 usually
+        if ((self.waypointDistance() > 4.) or       # Truncate when the drone is too far away
+            (abs(state[7]) > .4) or
+            (abs(state[8]) > .4)     # Truncate when the drone is too tilted
+        ):
+            return True
+
         terminated = False
         if self._targetingFinalWaypoint():
-            if self._atWaypoint(self.waypoints.shape[0] - 1, threshold=0.0001):
+            if self._atWaypoint(self.waypoints.shape[0] - 1, threshold=.0001):
                 terminated = True
         return terminated
 
@@ -168,18 +174,18 @@ class HoverAviary(BaseRLAviary):
             Whether the current episode timed out.
 
         """
-        state = self._getDroneStateVector(0)
-        self.trunk_xy = 5.0  # 1.5 usually
-        self.trunk_z = 1.0  # 1.0 usually
-
-        target_pos = self.waypoints[self.waypoint_index]
-        if ((abs(state[0] - target_pos[0]) > self.trunk_xy) or
-            (abs(state[1] - target_pos[1]) > self.trunk_xy) or
-            (state[2] > (target_pos[2] + self.trunk_z)) or       # Truncate when the drone is too far away
-            (abs(state[7]) > .4) or
-            (abs(state[8]) > .4)     # Truncate when the drone is too tilted
-        ):
-            return True
+        # state = self._getDroneStateVector(0)
+        # self.trunk_xy = 5.0  # 1.5 usually
+        # self.trunk_z = 1.0  # 1.0 usually
+        #
+        # target_pos = self.waypoints[self.waypoint_index]
+        # if ((abs(state[0] - target_pos[0]) > self.trunk_xy) or
+        #     (abs(state[1] - target_pos[1]) > self.trunk_xy) or
+        #     (state[2] > (target_pos[2] + self.trunk_z)) or       # Truncate when the drone is too far away
+        #     (abs(state[7]) > .4) or
+        #     (abs(state[8]) > .4)     # Truncate when the drone is too tilted
+        # ):
+        #     return True
         if self.step_counter/self.PYB_FREQ > self.EPISODE_LEN_SEC:
             return True
         else:
@@ -215,3 +221,8 @@ class HoverAviary(BaseRLAviary):
               options : dict = None):
         self.waypoint_index = 0
         return super().reset(seed, options)
+
+    def _computeObs(self):
+        obs = super()._computeObs()
+        obs[0, 0:3] = obs[0, 0:3] - self.waypoints[self.waypoint_index]
+        return obs
