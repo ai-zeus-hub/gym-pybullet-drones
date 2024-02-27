@@ -41,7 +41,7 @@ DEFAULT_OUTPUT_FOLDER = 'results'
 DEFAULT_COLAB = False
 
 DEFAULT_OBS = ObservationType('kin') # 'kin' or 'rgb'
-DEFAULT_ACT = ActionType('vel') # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
+DEFAULT_ACT = ActionType('rpm') # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
 DEFAULT_AGENTS = 2
 DEFAULT_MA = False
 # DEFAULT_EPISODE_LEN=8
@@ -109,8 +109,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
         f"PPO-{str(DEFAULT_ACT).split('.')[1]}",
         f"targets={targets.tolist()}",
         f"{arch=}",
-        f"lr=pw@{MAX_LR=}",
-        "modified_reward"
+        f"lr=const@{MAX_LR=}"
     ])
 
     model = PPO('MlpPolicy',
@@ -123,7 +122,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                 # omni settings
                 # n_steps=64,
                 # batch_size=16,
-                learning_rate=piecewise_lr_schedule,
+                learning_rate=constant_lr_schedule,
                 n_epochs=4,
                 ent_coef=0.001,
                 max_grad_norm=10.0,
@@ -159,7 +158,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                                  eval_freq=int(1000),
                                  deterministic=True,
                                  render=False)
-    model.learn(total_timesteps=300_000,  # int(1e7) if local else int(1e2), # shorter training in GitHub Actions pytest
+    model.learn(total_timesteps=400_000,  # int(1e7) if local else int(1e2), # shorter training in GitHub Actions pytest
                 callback=eval_callback,
                 log_interval=100,
                 tb_log_name=run_description)

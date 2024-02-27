@@ -13,3 +13,5 @@ Using the omni drone project as a guide for parameter tuning, I was able to vast
 
 Another issue was the default reward function used dist ** 4. This resulted in poor training when the distance was less than 1.0.
 To solved, I switched to the exponentiation function.
+
+Observation space not including relative position.

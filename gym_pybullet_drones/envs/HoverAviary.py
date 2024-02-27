@@ -94,7 +94,6 @@ class HoverAviary(BaseRLAviary):
 
         target_pos = self.waypoints[self.waypoint_index]
         distance = np.linalg.norm(target_pos - current_pos)
-        # reward_pose = 1.0 / (1.0 + np.square(reward_distance_scale * distance))
         reward_pose = np.exp(-distance * reward_distance_scale)
 
         reward = reward_pose
@@ -120,14 +119,7 @@ class HoverAviary(BaseRLAviary):
             Whether the current episode is done.
 
         """
-        # state = self._getDroneStateVector(0)
-        # if np.linalg.norm(self.TARGET_POS - state[0:3]) < .0001:
-        #     return True
-        # else:
-        #     return False
         state = self._getDroneStateVector(0)
-        # self.trunk_xy = 5.0  # 1.5 usually
-        # self.trunk_z = 1.0  # 1.0 usually
         if ((self.waypointDistance() > 4.) or       # Truncate when the drone is too far away
             (abs(state[7]) > .4) or
             (abs(state[8]) > .4)     # Truncate when the drone is too tilted
@@ -174,18 +166,6 @@ class HoverAviary(BaseRLAviary):
             Whether the current episode timed out.
 
         """
-        # state = self._getDroneStateVector(0)
-        # self.trunk_xy = 5.0  # 1.5 usually
-        # self.trunk_z = 1.0  # 1.0 usually
-        #
-        # target_pos = self.waypoints[self.waypoint_index]
-        # if ((abs(state[0] - target_pos[0]) > self.trunk_xy) or
-        #     (abs(state[1] - target_pos[1]) > self.trunk_xy) or
-        #     (state[2] > (target_pos[2] + self.trunk_z)) or       # Truncate when the drone is too far away
-        #     (abs(state[7]) > .4) or
-        #     (abs(state[8]) > .4)     # Truncate when the drone is too tilted
-        # ):
-        #     return True
         if self.step_counter/self.PYB_FREQ > self.EPISODE_LEN_SEC:
             return True
         else:

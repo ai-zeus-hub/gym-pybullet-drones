@@ -59,7 +59,7 @@ class BaseRLAviary(BaseAviary):
         obs : ObservationType, optional
             The type of observation space (kinematic information or vision)
         act : ActionType, optional
-            The type of action space (1 or 3D; RPMS, thurst and torques, waypoint or velocity with PID control; etc.)
+            The type of action space (1 or 3D; RPMS, thrust and torques, waypoint or velocity with PID control; etc.)
 
         """
         #### Create a buffer for the last .5 sec of actions ########
