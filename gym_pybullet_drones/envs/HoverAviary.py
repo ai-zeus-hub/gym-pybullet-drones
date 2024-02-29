@@ -66,7 +66,7 @@ class HoverAviary(BaseRLAviary):
             The type of action space (1 or 3D; RPMS, thrust and torques, or waypoint with PID control)
 
         """
-        self.future_traj_steps = 4
+        self.future_traj_steps = 1
 
         self.EPISODE_LEN_SEC = episode_len
         self.traj_c_dist = D.Uniform(torch.tensor(-0.6), torch.tensor(0.6))
@@ -181,18 +181,19 @@ class HoverAviary(BaseRLAviary):
         return super().reset(seed, options)
 
     def _computeObs(self):
-        obs = np.zeros((self.NUM_DRONES,21))
+        base_action_size = 12 + (self.future_traj_steps * 3)
+        obs = np.zeros((self.NUM_DRONES,base_action_size))
         for i in range(self.NUM_DRONES):
             state = self._getDroneStateVector(i)
             # For each drone, obs12 will be:
-            #   0-2: (relative) x, y, z
+            #   0-2: x, y, z
             #   3-5: roll, pitch, yaw
             #   6-8: vx, vy, vz
             #  9-11: wx, wy, wz
             pos = state[0:3]
             self.target_pos[:] = self._compute_traj(self.future_traj_steps, step_size=5)
             rpos = self.target_pos - pos
-            obs[i, :] = np.hstack([rpos.flatten(), state[7:10], state[10:13], state[13:16]]).reshape(21,)
+            obs[i, :] = np.hstack([pos, state[7:10], state[10:13], state[13:16], rpos.flatten()]).reshape(base_action_size,)
         ret = np.array([obs[i, :] for i in range(self.NUM_DRONES)]).astype('float32')
 
         #### Add action buffer to observation #######################
@@ -214,8 +215,12 @@ class HoverAviary(BaseRLAviary):
         #### Observation vector ### X        Y        Z       Q1   Q2   Q3   Q4   R       P       Y       VX       VY       VZ       WX       WY       WZ
         lo = -np.inf
         hi = np.inf
-        obs_lower_bound = np.array([[lo,lo,lo, lo,lo,lo, lo,lo,lo, lo,lo,lo, lo,lo,lo,lo,lo,lo,lo,lo,lo] for i in range(self.NUM_DRONES)])
-        obs_upper_bound = np.array([[hi,hi,hi, hi,hi,hi, hi,hi,hi, hi,hi,hi, hi,hi,hi,hi,hi,hi,hi,hi,hi] for i in range(self.NUM_DRONES)])
+        obs_lower_bound = np.array([[lo,lo,lo, lo,lo,lo,lo,lo,lo,lo,lo,lo] for i in range(self.NUM_DRONES)])
+        obs_upper_bound = np.array([[hi,hi,hi,hi,hi,hi,hi,hi,hi,hi,hi,hi] for i in range(self.NUM_DRONES)])
+
+        for _ in range(self.future_traj_steps):
+            obs_lower_bound = np.hstack([obs_lower_bound, np.array([[lo, lo, lo]])])
+            obs_upper_bound = np.hstack([obs_upper_bound, np.array([[hi, hi, hi]])])
 
         #### Add action buffer to observation space ################
         act_lo = -1
@@ -236,7 +241,7 @@ class HoverAviary(BaseRLAviary):
                 obs_upper_bound = np.hstack([obs_upper_bound, np.array([[act_hi] for i in range(self.NUM_DRONES)])])
         return spaces.Box(low=obs_lower_bound, high=obs_upper_bound, dtype=np.float32)
 
-    def _compute_traj(self, steps: int, env_ids=None, step_size: float = 1.):
+    def _compute_traj(self, steps: int, step_size: float = 1.):
         t = self.step_counter + step_size * torch.arange(steps)
         t = self.traj_t0 + scale_time(self.traj_w * t * self.PYB_TIMESTEP)
         target_pos = lemniscate(t, self.traj_c)
