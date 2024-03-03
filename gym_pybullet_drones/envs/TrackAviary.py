@@ -117,7 +117,7 @@ class TrackAviary(BaseRLAviary):
 
         self.target_pos = np.zeros((num_tracking_drones, self.future_traj_steps, 3))
 
-        initial_xyzs = np.array([[0., 0., 0.5]])  # Start from a hover
+        initial_xyzs = np.array([[.25, .25, 1.]])  # Start from a hover
 
         xyzs, rpys, waypoints = circle(ctrl_freq)
         tracked_drone = WaypointDroneAgent(initial_xyz=xyzs,
@@ -159,12 +159,20 @@ class TrackAviary(BaseRLAviary):
 
     ################################################################################
 
+    def target_waypoint(self):
+        target_state = self.EXTERNAL_AGENTS[0].stateVector()
+        target_waypoint = target_state[0:3]
+        return target_waypoint
+
     def distance_from_next_target(self) -> float:
         """Distance from tracking to tracked drone
         """
         state = self._getDroneStateVector(0)
-        target_waypoint = self.target_pos[0]
-        distance_to_waypoint = np.linalg.norm(target_waypoint - state[0:3])
+        # target_waypoint = self.target_pos[0]
+        # distance_to_waypoint = np.linalg.norm(target_waypoint - state[0:3])
+        # return distance_to_waypoint
+
+        distance_to_waypoint = np.linalg.norm(self.target_waypoint() - state[0:3])
         return distance_to_waypoint
 
 
@@ -239,8 +247,10 @@ class TrackAviary(BaseRLAviary):
             #   6-8: vx, vy, vz
             #  9-11: wx, wy, wz
             pos = state[0:3]
-            self.target_pos[:] = self._compute_traj(self.future_traj_steps)  # step_size=5
-            rpos = self.target_pos - pos
+            # self.target_pos[:] = self._compute_traj(self.future_traj_steps)  # step_size=5
+            # tpos = self.target_pos
+            tpos = self.target_waypoint()
+            rpos = tpos - pos
             obs[i, :] = np.hstack([pos, state[7:10], state[10:13], state[13:16], rpos.flatten()]).reshape(base_action_size,)
         ret = np.array([obs[i, :] for i in range(self.NUM_DRONES)]).astype('float32')
 

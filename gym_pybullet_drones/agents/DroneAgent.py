@@ -9,6 +9,7 @@ from gym_pybullet_drones.agents.BaseAgent import BaseAgent
 from gym_pybullet_drones.utils.enums import DroneModel, Physics
 from gym_pybullet_drones.utils.urdf import parseURDFParameters
 
+
 @dataclass
 class Kinematics:
     pos: np.array = np.zeros(3)
