@@ -4,6 +4,7 @@ import torch.distributions as D
 
 from gymnasium import spaces
 
+from gym_pybullet_drones.agents.WaypointDroneAgent import WaypointDroneAgent
 from gym_pybullet_drones.envs.BaseRLAviary import BaseRLAviary
 from gym_pybullet_drones.utils.enums import DroneModel, Physics, ActionType, ObservationType
 
@@ -12,13 +13,48 @@ def scale_time(t, a: float = 1.0):
     return t / (1 + 1/(a*torch.abs(t)))
 
 
-def lemniscate(t, c):
+def lemniscate(t: np.array, c) -> np.array:
+    """
+    t: array of time points [0, ...] -- loops at 2*pi
+
+    returns: ndarray of shape (len(t), 3)
+    """
     sin_t = torch.sin(t)
     cos_t = torch.cos(t)
     sin2p1 = torch.square(sin_t) + 1
     x = torch.stack([cos_t, sin_t * cos_t, c * sin_t], dim=-1) / sin2p1.unsqueeze(-1)
     return x.numpy()
 
+# def circle(t, height_scale: float = 1.):
+#     cos_t = torch.cos(t)
+#     sin_t = torch.sin(t)
+#     z = 1 * height_scale
+#     points = torch.stack([cos_t, sin_t, z], dim=-1)
+#     return points.numpy()
+#
+# def compute_traj(self, steps: int, step_size: float = 1., func = circle):
+#     t = self.step_counter + step_size * torch.arange(steps)
+#     t = self.traj_t0 + scale_time(t * self.PYB_TIMESTEP)
+#     target_pos = func(t, self.traj_c)
+#     return self.INIT_XYZS[0] + target_pos
+
+def circle(control_freq_hz, period = 6, height = 1.0, radius = 0.3):
+    num_drones = 1
+    H_STEP = .05  # height difference between drones
+
+    init_xyzs = np.array([[radius*np.cos((i/6)*2*np.pi+np.pi/2),
+                           radius*np.sin((i/6)*2*np.pi+np.pi/2)-radius,
+                           height+i*H_STEP] for i in range(num_drones)])
+    init_rpys = np.array([[0, 0,  i * (np.pi/2)/num_drones] for i in range(num_drones)])
+
+    # Initialize a circular trajectory
+    num_wp = control_freq_hz * period
+    waypoints = np.zeros((num_wp,3))
+    for i in range(num_wp):
+        waypoints[i, :] = (radius*np.cos((i/num_wp)*(2*np.pi)+np.pi/2)+init_xyzs[0, 0],
+                           radius*np.sin((i/num_wp)*(2*np.pi)+np.pi/2)-radius+init_xyzs[0, 1],
+                           height)
+    return init_xyzs[0], init_rpys[0], waypoints
 
 class TrackAviary(BaseRLAviary):
     """Single agent RL problem: hover at position."""
@@ -72,17 +108,27 @@ class TrackAviary(BaseRLAviary):
         self.traj_c_dist = D.Uniform(torch.tensor(-0.6), torch.tensor(0.6))
         self.traj_scale_dist = D.Uniform(torch.tensor([1.8, 1.8, 1.]), torch.tensor([3.2, 3.2, 1.5]))
         self.traj_w_dist = D.Uniform(torch.tensor(0.8), torch.tensor(1.1))
-        self.traj_t0 = np.pi / 2
+        self.traj_t0 = np.pi / 2  # t0 on a unit circle -- radians
 
-        self.traj_c = np.zeros((1,))
-        self.traj_scale = torch.zeros((1, 3))
-        self.traj_w = torch.ones((1,))
+        num_tracking_drones = 1
+        self.traj_c = np.zeros((num_tracking_drones,))
+        self.traj_scale = torch.zeros((num_tracking_drones, 3))
+        self.traj_w = torch.ones((num_tracking_drones,))
 
-        self.target_pos = np.zeros((1, self.future_traj_steps, 3))
+        self.target_pos = np.zeros((num_tracking_drones, self.future_traj_steps, 3))
 
         initial_xyzs = np.array([[0., 0., 0.5]])  # Start from a hover
+
+        xyzs, rpys, waypoints = circle(ctrl_freq)
+        tracked_drone = WaypointDroneAgent(initial_xyz=xyzs,
+                                           initial_rpy=rpys,
+                                           pyb_freq=pyb_freq,
+                                           ctrl_freq=ctrl_freq,
+                                           waypoints=waypoints,
+                                           episode_length_sec=episode_len)
+
         super().__init__(drone_model=drone_model,
-                         num_drones=1,
+                         num_drones=num_tracking_drones,
                          initial_xyzs=initial_xyzs,
                          initial_rpys=initial_rpys,
                          physics=physics,
@@ -91,19 +137,19 @@ class TrackAviary(BaseRLAviary):
                          gui=gui,
                          record=record,
                          obs=obs,
-                         act=act
+                         act=act,
+                         external_agents=[tracked_drone]
                          )
 
     ################################################################################
 
     def _computeReward(self):
-        """Computes the current reward value.
+        """Computes the current reward value for the drone doing the tracking
 
         Returns
         -------
         float
             The reward.
-
         """
         reward_distance_scale = 1.2
         distance = self.distance_from_next_target()
@@ -114,6 +160,8 @@ class TrackAviary(BaseRLAviary):
     ################################################################################
 
     def distance_from_next_target(self) -> float:
+        """Distance from tracking to tracked drone
+        """
         state = self._getDroneStateVector(0)
         target_waypoint = self.target_pos[0]
         distance_to_waypoint = np.linalg.norm(target_waypoint - state[0:3])
@@ -182,7 +230,7 @@ class TrackAviary(BaseRLAviary):
 
     def _computeObs(self):
         base_action_size = 12 + (self.future_traj_steps * 3)
-        obs = np.zeros((self.NUM_DRONES,base_action_size))
+        obs = np.zeros((self.NUM_DRONES, base_action_size))
         for i in range(self.NUM_DRONES):
             state = self._getDroneStateVector(i)
             # For each drone, obs12 will be:
@@ -191,7 +239,7 @@ class TrackAviary(BaseRLAviary):
             #   6-8: vx, vy, vz
             #  9-11: wx, wy, wz
             pos = state[0:3]
-            self.target_pos[:] = self._compute_traj(self.future_traj_steps, step_size=5)
+            self.target_pos[:] = self._compute_traj(self.future_traj_steps)  # step_size=5
             rpos = self.target_pos - pos
             obs[i, :] = np.hstack([pos, state[7:10], state[10:13], state[13:16], rpos.flatten()]).reshape(base_action_size,)
         ret = np.array([obs[i, :] for i in range(self.NUM_DRONES)]).astype('float32')
@@ -241,8 +289,8 @@ class TrackAviary(BaseRLAviary):
                 obs_upper_bound = np.hstack([obs_upper_bound, np.array([[act_hi] for i in range(self.NUM_DRONES)])])
         return spaces.Box(low=obs_lower_bound, high=obs_upper_bound, dtype=np.float32)
 
-    def _compute_traj(self, steps: int, step_size: float = 1.):
-        t = self.step_counter + step_size * torch.arange(steps)
+    def _compute_traj(self, steps: int):
+        t = self.step_counter + torch.arange(steps)  # * step_size (=1. default)
         t = self.traj_t0 + scale_time(self.traj_w * t * self.PYB_TIMESTEP)
         target_pos = lemniscate(t, self.traj_c)
         return self.INIT_XYZS[0] + target_pos

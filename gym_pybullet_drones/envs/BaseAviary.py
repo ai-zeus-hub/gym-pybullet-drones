@@ -374,7 +374,7 @@ class BaseAviary(gym.Env):
                     self._drag(self.last_clipped_action[i, :], i)
                     self._downwash(i)
             for external_agent in self.EXTERNAL_AGENTS:
-                external_agent.bulletStep()
+                external_agent.step()
             #### PyBullet computes the new state, unless Physics.DYN ###
             if self.PHYSICS != Physics.DYN:
                 p.stepSimulation(physicsClientId=self.CLIENT)

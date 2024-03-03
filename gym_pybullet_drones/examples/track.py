@@ -115,7 +115,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                                  eval_freq=int(1000),
                                  deterministic=True,
                                  render=False)
-    model.learn(total_timesteps=750_000, # int(1e6), # shorter training in GitHub Actions pytest
+    model.learn(total_timesteps=750_000,  # 750_000, # int(1e6), # shorter training in GitHub Actions pytest
                 callback=eval_callback,
                 log_interval=100,
                 tb_log_name=run_description)

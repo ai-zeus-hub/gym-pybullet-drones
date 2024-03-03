@@ -27,15 +27,20 @@ class WaypointDroneAgent(DroneAgent):
         self.wp_counter = 0
         self.cur_rpms = np.zeros(4)
 
+    def current_waypoint(self):
+        return self.waypoints[self.wp_counter]
+
     def calculateRpms(self):
+        # target_pos = np.hstack(
+        #     [self.waypoints[self.wp_counter, 0:2],
+        #      self.INIT_XYZ[2]]),
+
         rpms, _, _ = self.ctrl.computeControl(control_timestep=self.CTRL_TIMESTEP,
                                                 cur_pos=self.kinematics.pos,
                                                 cur_quat=self.kinematics.quat,
                                                 cur_vel=self.kinematics.vel,
                                                 cur_ang_vel=self.kinematics.ang_v,
-                                                target_pos=np.hstack(
-                                                    [self.waypoints[self.wp_counter, 0:2],
-                                                     self.INIT_XYZ[2]]),
+                                                target_pos=self.current_waypoint(),
                                                 target_rpy=self.INIT_RPY
                                                 )
         rpms = np.clip(rpms, 0, self.MAX_RPM)

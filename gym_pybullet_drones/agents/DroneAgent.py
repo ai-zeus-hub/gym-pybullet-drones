@@ -17,6 +17,7 @@ class Kinematics:
     vel: np.array = np.zeros(3)
     ang_v: np.array = np.zeros(3)
 
+
 def calc_max_xy_torque(drone_model, params, max_rpm):
     max_xy_torque = -1.0
     if drone_model == DroneModel.CF2X:
@@ -94,7 +95,7 @@ class DroneAgent(BaseAgent):
                               )
 
     def updateAndStoreKinematicInformation(self):
-        """Updates and stores the drones kinemaatic information.
+        """Updates and stores the drones kinematic information.
 
         This method is meant to limit the number of calls to PyBullet in each step
         and improve performance (at the expense of memory).

@@ -22,7 +22,7 @@ class BaseAgent:
     def _bulletStep(self):
         raise NotImplementedError
 
-    def bulletStep(self):
+    def step(self):
         self._bulletStep()
         self.sim_step_counter += 1
 
