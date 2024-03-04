@@ -104,7 +104,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                 policy_kwargs=policy_kwargs)
 
     #### Target cumulative rewards (problem-dependent) ##########
-    target_reward = 2_000  # 467. * 4 if not multiagent else 920.  # 467.
+    target_reward = 240  # 467. * 4 if not multiagent else 920.  # 467.
     callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=target_reward,
                                                      verbose=1)
     eval_callback = EvalCallback(eval_env,

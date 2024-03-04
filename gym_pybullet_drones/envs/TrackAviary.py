@@ -53,38 +53,38 @@ def circle(control_freq_hz, period = 6, height = 1.0, radius = 0.3):
                            init_xyzs[2])
     return init_xyzs, init_rpys, waypoints
 
-def triangle(control_freq_hz, period=6, height=1.0, side_length=0.5):
+def polygon_trajectory(control_freq_hz, period=6, height=1.0, radius=1.0, n_sides=3):
     """
-    Generates waypoints along a triangular path.
+    Generates waypoints along a polygon path with n sides, starting at [0, 0, height].
 
     Parameters:
     - control_freq_hz: Control frequency in Hz, determining the number of waypoints per second.
-    - period: Total time to complete one cycle of the triangle path in seconds.
-    - height: The height (Z coordinate) at which the triangle path should be generated.
-    - side_length: The length of each side of the equilateral triangle.
+    - period: Total time to complete one cycle of the polygon path in seconds.
+    - height: The height (Z coordinate) at which the polygon path should be generated.
+    - radius: The circumradius of the polygon, which determines its size.
+    - n_sides: The number of sides of the polygon.
 
     Returns:
     - Tuple of initial position, initial orientation (roll, pitch, yaw), and an array of waypoints.
     """
     # Initial position and orientation
-    init_xyzs = np.array([0.5 * side_length, np.sqrt(3) / 6 * side_length, height])
+    init_xyzs = np.array([0, 0, height])
     init_rpys = np.array([0, 0, 0])
 
     # Calculate the number of waypoints per side
-    num_wp_per_side = control_freq_hz * period // 3
-    waypoints = np.zeros((num_wp_per_side * 3, 3))
+    num_wp_per_side = control_freq_hz * period // n_sides
+    waypoints = np.zeros((num_wp_per_side * n_sides, 3))
 
-    # Define the vertices of the equilateral triangle
+    # Generate vertices of the polygon relative to the center [0, 0]
     vertices = np.array([
-        [0.5 * side_length, np.sqrt(3) / 6 * side_length],  # Vertex A
-        [-0.5 * side_length, np.sqrt(3) / 6 * side_length],  # Vertex B
-        [0, -np.sqrt(3) / 3 * side_length]  # Vertex C
+        [radius * np.cos(2 * np.pi * i / n_sides), radius * np.sin(2 * np.pi * i / n_sides)]
+        for i in range(n_sides)
     ])
 
-    # Generate waypoints for each side of the triangle
-    for i in range(3):
+    # Generate waypoints for each side of the polygon
+    for i in range(n_sides):
         start_vertex = vertices[i]
-        end_vertex = vertices[(i + 1) % 3]
+        end_vertex = vertices[(i + 1) % n_sides]
         for j in range(num_wp_per_side):
             t = j / num_wp_per_side
             waypoint = (1 - t) * start_vertex + t * end_vertex
@@ -93,6 +93,8 @@ def triangle(control_freq_hz, period=6, height=1.0, side_length=0.5):
 
     return init_xyzs, init_rpys, waypoints
 
+
+
 class TrackAviary(BaseRLAviary):
     """Single agent RL problem: hover at position."""
 
@@ -100,8 +102,6 @@ class TrackAviary(BaseRLAviary):
 
     def __init__(self,
                  drone_model: DroneModel = DroneModel.CF2X,
-                 initial_xyzs=None,
-                 initial_rpys=None,
                  physics: Physics = Physics.PYB,
                  pyb_freq: int = 120,
                  ctrl_freq: int = 30,
@@ -154,9 +154,8 @@ class TrackAviary(BaseRLAviary):
 
         self.target_pos = np.zeros((num_tracking_drones, self.future_traj_steps, 3))
 
-        initial_xyzs = np.array([[.25, .25, 1.]])  # Start from a hover
 
-        xyzs, rpys, waypoints = triangle(ctrl_freq)
+        xyzs, rpys, waypoints = polygon_trajectory(ctrl_freq, n_sides=4, radius=0.5)
         tracked_drone = WaypointDroneAgent(initial_xyz=xyzs,
                                            initial_rpy=rpys,
                                            pyb_freq=pyb_freq,
@@ -166,8 +165,8 @@ class TrackAviary(BaseRLAviary):
 
         super().__init__(drone_model=drone_model,
                          num_drones=num_tracking_drones,
-                         initial_xyzs=initial_xyzs,
-                         initial_rpys=initial_rpys,
+                         initial_xyzs=np.array([[.25, .25, 1.]]),
+                         initial_rpys=np.array([[0., 0., 0.]]),
                          physics=physics,
                          pyb_freq=pyb_freq,
                          ctrl_freq=ctrl_freq,
