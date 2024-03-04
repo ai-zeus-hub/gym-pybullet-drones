@@ -39,22 +39,59 @@ def lemniscate(t: np.array, c) -> np.array:
 #     return self.INIT_XYZS[0] + target_pos
 
 def circle(control_freq_hz, period = 6, height = 1.0, radius = 0.3):
-    num_drones = 1
-    H_STEP = .05  # height difference between drones
-
-    init_xyzs = np.array([[radius*np.cos((i/6)*2*np.pi+np.pi/2),
-                           radius*np.sin((i/6)*2*np.pi+np.pi/2)-radius,
-                           height+i*H_STEP] for i in range(num_drones)])
-    init_rpys = np.array([[0, 0,  i * (np.pi/2)/num_drones] for i in range(num_drones)])
+    init_xyzs = np.array([radius*np.cos(np.pi/2),
+                          radius*np.sin(np.pi/2) - radius,
+                          height])
+    init_rpys = np.array([0, 0,  0])
 
     # Initialize a circular trajectory
     num_wp = control_freq_hz * period
     waypoints = np.zeros((num_wp,3))
     for i in range(num_wp):
-        waypoints[i, :] = (radius*np.cos((i/num_wp)*(2*np.pi)+np.pi/2)+init_xyzs[0, 0],
-                           radius*np.sin((i/num_wp)*(2*np.pi)+np.pi/2)-radius+init_xyzs[0, 1],
-                           height)
-    return init_xyzs[0], init_rpys[0], waypoints
+        waypoints[i, :] = (radius*np.cos((i/num_wp)*(2*np.pi)+np.pi/2)+init_xyzs[0],
+                           radius*np.sin((i/num_wp)*(2*np.pi)+np.pi/2)-radius+init_xyzs[1],
+                           init_xyzs[2])
+    return init_xyzs, init_rpys, waypoints
+
+def triangle(control_freq_hz, period=6, height=1.0, side_length=0.5):
+    """
+    Generates waypoints along a triangular path.
+
+    Parameters:
+    - control_freq_hz: Control frequency in Hz, determining the number of waypoints per second.
+    - period: Total time to complete one cycle of the triangle path in seconds.
+    - height: The height (Z coordinate) at which the triangle path should be generated.
+    - side_length: The length of each side of the equilateral triangle.
+
+    Returns:
+    - Tuple of initial position, initial orientation (roll, pitch, yaw), and an array of waypoints.
+    """
+    # Initial position and orientation
+    init_xyzs = np.array([0.5 * side_length, np.sqrt(3) / 6 * side_length, height])
+    init_rpys = np.array([0, 0, 0])
+
+    # Calculate the number of waypoints per side
+    num_wp_per_side = control_freq_hz * period // 3
+    waypoints = np.zeros((num_wp_per_side * 3, 3))
+
+    # Define the vertices of the equilateral triangle
+    vertices = np.array([
+        [0.5 * side_length, np.sqrt(3) / 6 * side_length],  # Vertex A
+        [-0.5 * side_length, np.sqrt(3) / 6 * side_length],  # Vertex B
+        [0, -np.sqrt(3) / 3 * side_length]  # Vertex C
+    ])
+
+    # Generate waypoints for each side of the triangle
+    for i in range(3):
+        start_vertex = vertices[i]
+        end_vertex = vertices[(i + 1) % 3]
+        for j in range(num_wp_per_side):
+            t = j / num_wp_per_side
+            waypoint = (1 - t) * start_vertex + t * end_vertex
+            waypoints[i * num_wp_per_side + j, :2] = waypoint
+            waypoints[i * num_wp_per_side + j, 2] = height
+
+    return init_xyzs, init_rpys, waypoints
 
 class TrackAviary(BaseRLAviary):
     """Single agent RL problem: hover at position."""
@@ -119,7 +156,7 @@ class TrackAviary(BaseRLAviary):
 
         initial_xyzs = np.array([[.25, .25, 1.]])  # Start from a hover
 
-        xyzs, rpys, waypoints = circle(ctrl_freq)
+        xyzs, rpys, waypoints = triangle(ctrl_freq)
         tracked_drone = WaypointDroneAgent(initial_xyz=xyzs,
                                            initial_rpy=rpys,
                                            pyb_freq=pyb_freq,
@@ -159,10 +196,39 @@ class TrackAviary(BaseRLAviary):
 
     ################################################################################
 
-    def target_waypoint(self):
+    # def target_waypoint(self):
+    #     target_state = self.EXTERNAL_AGENTS[0].stateVector()
+    #     target_waypoint = target_state[0:3]
+    #     target_rpy = target_state[3:6]
+    #     return target_waypoint
+
+    def target_waypoint(self, distance_behind: float = 0.25) -> np.ndarray:
+        """
+        Calculates a waypoint position directly behind the drone at a specified distance.
+
+        Parameters:
+        - distance_behind: The distance behind the drone to calculate the waypoint position.
+
+        Returns:
+        - A numpy ndarray representing the x, y, z coordinates of the waypoint position.
+        """
+        # Extract current state vector of the target drone
         target_state = self.EXTERNAL_AGENTS[0].stateVector()
-        target_waypoint = target_state[0:3]
-        return target_waypoint
+
+        # Extract current position and orientation
+        target_position = target_state[0:3]
+        target_rpy = target_state[7:10]  # roll, pitch, yaw in radians
+
+        # Calculate the change in pos
+        # ition due to the yaw angle
+        # Yaw rotation matrix about the Z-axis
+        yaw = target_rpy[2]
+        delta_x = -distance_behind * np.sin(yaw)  # Change in x position
+        delta_y = distance_behind * np.cos(yaw)  # Change in y position
+
+        # Calculate the new position behind the drone
+        waypoint_position = target_position + np.array([delta_x, delta_y, 0])
+        return waypoint_position
 
     def distance_from_next_target(self) -> float:
         """Distance from tracking to tracked drone
