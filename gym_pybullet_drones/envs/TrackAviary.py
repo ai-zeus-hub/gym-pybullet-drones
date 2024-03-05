@@ -199,7 +199,7 @@ class TrackAviary(BaseRLAviary):
 
     ################################################################################
 
-    def target_waypoint(self, distance_behind: float = 0.25) -> np.ndarray:
+    def _target_waypoint(self, distance_behind: float = 0.25) -> np.ndarray:
         """
         Calculates a waypoint position directly behind the drone at a specified distance.
 
@@ -235,7 +235,7 @@ class TrackAviary(BaseRLAviary):
 
         state = self._getDroneStateVector(0)
         current_pos = state[0:3]
-        target_pos = self.target_waypoint()
+        target_pos = self._target_waypoint()
 
         x_distance = np.abs(current_pos[0] - target_pos[0])
         y_distance = np.abs(current_pos[1] - target_pos[1])
@@ -324,7 +324,7 @@ class TrackAviary(BaseRLAviary):
             pos = state[0:3]
             # self.target_pos[:] = self._compute_traj(self.future_traj_steps)  # step_size=5
             # tpos = self.target_pos
-            tpos = self.target_waypoint()
+            tpos = self._target_waypoint()
             rpos = tpos - pos
             obs[i, :] = np.hstack([pos, state[7:10], state[10:13], state[13:16], rpos.flatten()]).reshape(base_action_size,)
         ret = np.array([obs[i, :] for i in range(self.NUM_DRONES)]).astype('float32')
