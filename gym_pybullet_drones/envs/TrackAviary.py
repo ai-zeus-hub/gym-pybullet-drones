@@ -103,7 +103,7 @@ class TrackAviary(BaseRLAviary):
                  drone_model: DroneModel = DroneModel.CF2X,
                  physics: Physics = Physics.PYB,
                  pyb_freq: int = 120,
-                 ctrl_freq: int = 30,
+                 ctrl_freq: int = 24,
                  gui=False,
                  record=False,
                  obs: ObservationType = ObservationType.KIN,
@@ -312,38 +312,49 @@ class TrackAviary(BaseRLAviary):
         return super().reset(seed, options)
 
     def _computeObs(self):
-        base_action_size = 12 + (self.future_traj_steps * 3)
-        obs = np.zeros((self.NUM_DRONES, base_action_size))
-        for i in range(self.NUM_DRONES):
-            state = self._getDroneStateVector(i)
-            # For each drone, obs12 will be:
-            #   0-2: x, y, z
-            #   3-5: roll, pitch, yaw
-            #   6-8: vx, vy, vz
-            #  9-11: wx, wy, wz
-            pos = state[0:3]
-            # self.target_pos[:] = self._compute_traj(self.future_traj_steps)  # step_size=5
-            # tpos = self.target_pos
-            tpos = self._target_waypoint()
-            rpos = tpos - pos
-            obs[i, :] = np.hstack([pos, state[7:10], state[10:13], state[13:16], rpos.flatten()]).reshape(base_action_size,)
-        ret = np.array([obs[i, :] for i in range(self.NUM_DRONES)]).astype('float32')
+        if self.OBS_TYPE == ObservationType.RGB:
+            if self.step_counter % self.IMG_CAPTURE_FREQ == 0:
+                self.rgb[0], self.dep[0], self.seg[0] = self._getDroneImages(0, segmentation=False)
+                # #### Printing observation to PNG frames example ############
+                # if self.RECORD:
+                #     self._exportImage(img_type=ImageType.RGB,
+                #                       img_input=self.rgb[i],
+                #                       path=self.ONBOARD_IMG_PATH + "drone_" + str(i),
+                #                       frame_num=int(self.step_counter / self.IMG_CAPTURE_FREQ)
+                #                       )
+            ret = self.rgb[0, :, :, 0:3].astype(np.uint8)
+            return ret
+        elif self.OBS_TYPE == ObservationType.KIN:
+            base_action_size = 12 + (self.future_traj_steps * 3)
+            obs = np.zeros((self.NUM_DRONES, base_action_size))
+            for i in range(self.NUM_DRONES):
+                state = self._getDroneStateVector(i)
+                # For each drone, obs12 will be:
+                #   0-2: x, y, z
+                #   3-5: roll, pitch, yaw
+                #   6-8: vx, vy, vz
+                #  9-11: wx, wy, wz
+                pos = state[0:3]
+                # self.target_pos[:] = self._compute_traj(self.future_traj_steps)  # step_size=5
+                # tpos = self.target_pos
+                tpos = self._target_waypoint()
+                rpos = tpos - pos
+                obs[i, :] = np.hstack([pos, state[7:10], state[10:13], state[13:16], rpos.flatten()]).reshape(base_action_size,)
+            ret = np.array([obs[i, :] for i in range(self.NUM_DRONES)]).astype('float32')
 
-        #### Add action buffer to observation #######################
-        for i in range(self.ACTION_BUFFER_SIZE):
-            ret = np.hstack([ret, np.array([self.action_buffer[i][j, :] for j in range(self.NUM_DRONES)])])
-        return ret
+            #### Add action buffer to observation #######################
+            for i in range(self.ACTION_BUFFER_SIZE):
+                ret = np.hstack([ret, np.array([self.action_buffer[i][j, :] for j in range(self.NUM_DRONES)])])
+            return ret
+        else:
+            print("[ERROR] in TrackAviary._observationSpace()")
 
     def _observationSpace(self):
-        """Returns the observation space of the environment.
+        if self.OBS_TYPE == ObservationType.RGB:
+            return spaces.Box(low=0,
+                              high=255,
+                              shape=(self.IMG_RES[1], self.IMG_RES[0], 3), dtype=np.uint8)
 
-        Returns
-        -------
-        ndarray
-            A Box() of shape (NUM_DRONES,H,W,4) or (NUM_DRONES,12) depending on the observation type.
-
-        """
-        ############################################################
         #### OBS SPACE OF SIZE 12
         #### Observation vector ### X        Y        Z       Q1   Q2   Q3   Q4   R       P       Y       VX       VY       VZ       WX       WY       WZ
         lo = -np.inf

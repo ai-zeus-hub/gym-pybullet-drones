@@ -19,8 +19,8 @@ DEFAULT_RECORD_VIDEO = False
 DEFAULT_OUTPUT_FOLDER = 'results'
 DEFAULT_COLAB = False
 
-DEFAULT_OBS = ObservationType('kin') # 'kin' or 'rgb'
-DEFAULT_ACT = ActionType('rpm') # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
+DEFAULT_OBS = ObservationType('rgb')  # 'kin' or 'rgb'
+DEFAULT_ACT = ActionType('rpm')  # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
 DEFAULT_AGENTS = 2
 DEFAULT_MA = False
 DEFAULT_EPISODE_LEN = 8  # usually 8
@@ -72,22 +72,26 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
     print('[INFO] Observation space:', train_env.observation_space)
 
     ### Train the model #######################################
-    arch = [256, 256, 256]
-    policy_kwargs = dict(net_arch=arch,
-                         share_features_extractor=False)
+    net_arch = [256, 256, 256]
+    features_extractor_kwargs = dict()
+    policy_kwargs = dict(net_arch=net_arch,
+                         share_features_extractor=False,
+                         features_extractor_kwargs=features_extractor_kwargs)
+
+    policy_type = "MlpPolicy" if DEFAULT_OBS == ObservationType('kin') else "CnnPolicy"
 
     # ActorCriticPolicy
     run_description = " ".join([
-        f"PPO",
+        f"PPO-{policy_type}",
         f"Action={str(DEFAULT_ACT).split('.')[1]}",
-        f"Lemniscate",
         f"ActionBuffer=1",
         f"FutureSteps=1",
-        f"{arch=}",
+        # f"{net_arch=}",
+        f"{policy_kwargs=}",
         f"lr=const@{MAX_LR=}"
     ])
 
-    model = PPO('MlpPolicy',
+    model = PPO(policy_type,
                 train_env,
                 tensorboard_log=filename+'/tb/',
                 verbose=1,
