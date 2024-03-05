@@ -104,7 +104,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                 policy_kwargs=policy_kwargs)
 
     #### Target cumulative rewards (problem-dependent) ##########
-    target_reward = 240  # 467. * 4 if not multiagent else 920.  # 467.
+    target_reward = 220  # 467. * 4 if not multiagent else 920.  # 467.
     callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=target_reward,
                                                      verbose=1)
     eval_callback = EvalCallback(eval_env,
@@ -115,7 +115,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                                  eval_freq=int(1000),
                                  deterministic=True,
                                  render=False)
-    model.learn(total_timesteps=250_000,  # 750_000, # int(1e6), # shorter training in GitHub Actions pytest
+    model.learn(total_timesteps=350_000,  # 750_000, # int(1e6), # shorter training in GitHub Actions pytest
                 callback=eval_callback,
                 log_interval=100,
                 tb_log_name=run_description)
@@ -181,11 +181,11 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                 state=np.hstack([obs2[0:3],
                                     np.zeros(4),
                                     obs2[3:15],
-                                    act2 # todo: ajr - np.resize(action, (4))? reward=reward
+                                    act2
                                     ]),
                 control=np.zeros(12),
                 reward=reward,
-                distance=test_env.distance_from_next_target(),
+                distance=info["total_distance"],
                 )
         test_env.render()
         print(terminated)

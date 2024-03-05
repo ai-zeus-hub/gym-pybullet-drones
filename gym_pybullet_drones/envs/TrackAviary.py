@@ -38,20 +38,22 @@ def lemniscate(t: np.array, c) -> np.array:
 #     target_pos = func(t, self.traj_c)
 #     return self.INIT_XYZS[0] + target_pos
 
-def circle(control_freq_hz, period = 6, height = 1.0, radius = 0.3):
+
+def circle(control_freq_hz, period=6, height=1.0, radius=0.3):
     init_xyzs = np.array([radius*np.cos(np.pi/2),
                           radius*np.sin(np.pi/2) - radius,
                           height])
-    init_rpys = np.array([0, 0,  0])
+    init_rpys = np.array([0, 0, 0])
 
     # Initialize a circular trajectory
-    num_wp = control_freq_hz * period
-    waypoints = np.zeros((num_wp,3))
+    num_wp = int(control_freq_hz * period)
+    waypoints = np.zeros((num_wp, 3))
     for i in range(num_wp):
         waypoints[i, :] = (radius*np.cos((i/num_wp)*(2*np.pi)+np.pi/2)+init_xyzs[0],
                            radius*np.sin((i/num_wp)*(2*np.pi)+np.pi/2)-radius+init_xyzs[1],
                            init_xyzs[2])
     return init_xyzs, init_rpys, waypoints
+
 
 def polygon_trajectory(control_freq_hz, period=6, height=1.0, radius=1.0, n_sides=3):
     """
@@ -94,10 +96,7 @@ def polygon_trajectory(control_freq_hz, period=6, height=1.0, radius=1.0, n_side
     return init_xyzs, init_rpys, waypoints
 
 
-
 class TrackAviary(BaseRLAviary):
-    """Single agent RL problem: hover at position."""
-
     ################################################################################
 
     def __init__(self,
@@ -155,7 +154,9 @@ class TrackAviary(BaseRLAviary):
         self.target_pos = np.zeros((num_tracking_drones, self.future_traj_steps, 3))
 
 
-        xyzs, rpys, waypoints = polygon_trajectory(ctrl_freq, n_sides=4, radius=0.5)
+        # xyzs, rpys, waypoints = polygon_trajectory(ctrl_freq, n_sides=4, radius=0.5)
+        xyzs, rpys, waypoints = circle(ctrl_freq, radius=0.3)
+
         tracked_drone = WaypointDroneAgent(initial_xyz=xyzs,
                                            initial_rpy=rpys,
                                            pyb_freq=pyb_freq,
@@ -188,18 +189,15 @@ class TrackAviary(BaseRLAviary):
             The reward.
         """
         reward_distance_scale = 1.2
-        distance = self.distance_from_next_target()
-        reward_pose = np.exp(-distance * reward_distance_scale)
-        reward = reward_pose
+        total_dist, x_dist, y_dist, z_dist = self._distance_from_next_target()
+        reward_pose = np.exp(-total_dist * reward_distance_scale)
+
+        z_penalty = 0  # 1./2 * np.exp(-z_dist * 0.8)
+
+        reward = reward_pose - z_penalty
         return reward
 
     ################################################################################
-
-    # def target_waypoint(self):
-    #     target_state = self.EXTERNAL_AGENTS[0].stateVector()
-    #     target_waypoint = target_state[0:3]
-    #     target_rpy = target_state[3:6]
-    #     return target_waypoint
 
     def target_waypoint(self, distance_behind: float = 0.25) -> np.ndarray:
         """
@@ -218,8 +216,7 @@ class TrackAviary(BaseRLAviary):
         target_position = target_state[0:3]
         target_rpy = target_state[7:10]  # roll, pitch, yaw in radians
 
-        # Calculate the change in pos
-        # ition due to the yaw angle
+        # Calculate the change in position due to the yaw angle
         # Yaw rotation matrix about the Z-axis
         yaw = target_rpy[2]
         delta_x = -distance_behind * np.sin(yaw)  # Change in x position
@@ -229,16 +226,22 @@ class TrackAviary(BaseRLAviary):
         waypoint_position = target_position + np.array([delta_x, delta_y, 0])
         return waypoint_position
 
-    def distance_from_next_target(self) -> float:
+    def _distance_from_next_target(self) -> tuple[float, float, float, float]:
         """Distance from tracking to tracked drone
         """
-        state = self._getDroneStateVector(0)
-        # target_waypoint = self.target_pos[0]
-        # distance_to_waypoint = np.linalg.norm(target_waypoint - state[0:3])
+        # state = self._getDroneStateVector(0)
+        # distance_to_waypoint = np.linalg.norm(self.target_waypoint() - state[0:3])
         # return distance_to_waypoint
 
-        distance_to_waypoint = np.linalg.norm(self.target_waypoint() - state[0:3])
-        return distance_to_waypoint
+        state = self._getDroneStateVector(0)
+        current_pos = state[0:3]
+        target_pos = self.target_waypoint()
+
+        x_distance = np.abs(current_pos[0] - target_pos[0])
+        y_distance = np.abs(current_pos[1] - target_pos[1])
+        z_distance = np.abs(current_pos[2] - target_pos[2])
+        distance_to_waypoint = np.linalg.norm(target_pos - current_pos)
+        return distance_to_waypoint, x_distance, y_distance, z_distance
 
 
     ################################################################################
@@ -253,7 +256,9 @@ class TrackAviary(BaseRLAviary):
 
         """
         state = self._getDroneStateVector(0)
-        if ((self.distance_from_next_target() > 4.) or       # Truncate when the drone is too far away
+        total_dist, x_dist, y_dist, z_dist = self._distance_from_next_target()
+        if ((total_dist > 4.) or       # Truncate when the drone is too far away
+            # (z_dist > .2) or
             (abs(state[7]) > .4) or
             (abs(state[8]) > .4)     # Truncate when the drone is too tilted
         ):
@@ -285,15 +290,20 @@ class TrackAviary(BaseRLAviary):
 
         Returns
         -------
-        dict[str, int]
+        dict[str, Number]
             Dummy value.
 
         """
-        return {"answer": 42}  #### Calculated by the Deep Thought supercomputer in 7.5M years
+        total_distance, x_dist, y_dist, z_dist = self._distance_from_next_target()
+        return {"answer": 42,
+                "total_distance": total_distance,
+                "x_dist": x_dist,
+                "y_dist": y_dist,
+                "z_dist": z_dist}
 
     def reset(self,
-              seed : int = None,
-              options : dict = None):
+              seed: int = None,
+              options: dict = None):
         self.traj_c = self.traj_c_dist.sample()
         # self.traj_rot = euler_to_quaternion(self.traj_rpy_dist.sample())
         self.traj_scale = self.traj_scale_dist.sample()
@@ -338,7 +348,7 @@ class TrackAviary(BaseRLAviary):
         #### Observation vector ### X        Y        Z       Q1   Q2   Q3   Q4   R       P       Y       VX       VY       VZ       WX       WY       WZ
         lo = -np.inf
         hi = np.inf
-        obs_lower_bound = np.array([[lo,lo,lo, lo,lo,lo,lo,lo,lo,lo,lo,lo] for i in range(self.NUM_DRONES)])
+        obs_lower_bound = np.array([[lo,lo,lo,lo,lo,lo,lo,lo,lo,lo,lo,lo] for i in range(self.NUM_DRONES)])
         obs_upper_bound = np.array([[hi,hi,hi,hi,hi,hi,hi,hi,hi,hi,hi,hi] for i in range(self.NUM_DRONES)])
 
         for _ in range(self.future_traj_steps):
