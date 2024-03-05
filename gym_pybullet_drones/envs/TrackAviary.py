@@ -390,3 +390,6 @@ class TrackAviary(BaseRLAviary):
         t = self.traj_t0 + scale_time(self.traj_w * t * self.PYB_TIMESTEP)
         target_pos = lemniscate(t, self.traj_c)
         return self.INIT_XYZS[0] + target_pos
+
+    def _addObstacles(self):
+        pass

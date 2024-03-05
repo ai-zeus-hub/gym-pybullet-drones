@@ -2,6 +2,8 @@ import os
 import time
 import argparse
 import numpy as np
+from pathlib import Path
+
 from stable_baselines3 import PPO
 from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.env_util import make_vec_env
@@ -53,9 +55,9 @@ def constant_lr_schedule(remaining_percent: float) -> float:
 def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
         gui=DEFAULT_GUI, plot=True, colab=DEFAULT_COLAB, record_video=DEFAULT_RECORD_VIDEO,
         local=True, episode_len=DEFAULT_EPISODE_LEN):
-    filename = os.path.join(output_folder, 'save-latest')
-    if not os.path.exists(filename):
-        os.makedirs(filename+'/')
+    filename = Path(output_folder) / 'save-latest'
+    if not filename.exists():
+        filename.mkdir()
 
     train_env = make_vec_env(TrackAviary,
                              env_kwargs=dict(obs=DEFAULT_OBS,
@@ -81,19 +83,22 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
     policy_type = "MlpPolicy" if DEFAULT_OBS == ObservationType('kin') else "CnnPolicy"
 
     # ActorCriticPolicy
-    run_description = " ".join([
+    # run_description = " ".join([
+    #     f"PPO-{policy_type}",
+    #     f"Action={str(DEFAULT_ACT).split('.')[1]}",
+    #     f"ActionBuffer=1",
+    #     f"FutureSteps=1",
+    #     # f"{net_arch=}",
+    #     f"{policy_kwargs=}"
+    # ])
+    run_description = "_".join([
         f"PPO-{policy_type}",
-        f"Action={str(DEFAULT_ACT).split('.')[1]}",
-        f"ActionBuffer=1",
-        f"FutureSteps=1",
-        # f"{net_arch=}",
-        f"{policy_kwargs=}",
-        f"lr=const@{MAX_LR=}"
+        f"Action-{str(DEFAULT_ACT).split('.')[1]}"
     ])
 
     model = PPO(policy_type,
                 train_env,
-                tensorboard_log=filename+'/tb/',
+                tensorboard_log=str(filename / 'tb'),
                 verbose=1,
                 seed=10281991,
                 # clip_range=0.20,  # 0.1 will be slower but more steady. 0.2 default
@@ -114,22 +119,22 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
     eval_callback = EvalCallback(eval_env,
                                  callback_on_new_best=callback_on_best,
                                  verbose=1,
-                                 best_model_save_path=filename+'/',
-                                 log_path=filename+'/',
+                                 best_model_save_path=filename,
+                                 log_path=filename,
                                  eval_freq=int(1000),
                                  deterministic=True,
                                  render=False)
-    model.learn(total_timesteps=350_000,  # 750_000, # int(1e6), # shorter training in GitHub Actions pytest
+    model.learn(total_timesteps=2_000,  # 750_000, # int(1e6), # shorter training in GitHub Actions pytest
                 callback=eval_callback,
                 log_interval=100,
                 tb_log_name=run_description)
 
     #### Save the model ########################################
-    model.save(filename+'/final_model.zip')
-    print(filename)
+    model.save(filename / 'final_model.zip')
+    print(str(filename))
 
     #### Print training progression ############################
-    with np.load(filename+'/evaluations.npz') as data:
+    with np.load(filename / 'evaluations.npz') as data:
         for j in range(data['timesteps'].shape[0]):
             print(str(data['timesteps'][j])+","+str(data['results'][j][0]))
 
@@ -144,8 +149,8 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
 
     # if os.path.isfile(filename+'/final_model.zip'):
     #     path = filename+'/final_model.zip'
-    if os.path.isfile(filename+'/best_model.zip'):
-        path = filename+'/best_model.zip'
+    if (filename / 'best_model.zip').is_file():
+        path = filename / 'best_model.zip'
     else:
         print("[ERROR]: no model under the specified path", filename)
     model = PPO.load(path)
