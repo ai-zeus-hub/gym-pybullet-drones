@@ -19,9 +19,9 @@ from gym_pybullet_drones.utils.enums import ObservationType, ActionType
 DEFAULT_GUI = True
 DEFAULT_RECORD_VIDEO = False
 DEFAULT_OUTPUT_FOLDER = 'results'
-DEFAULT_COLAB = False
+DEFAULT_COLAB = True
 
-DEFAULT_OBS = ObservationType('rgb')  # 'kin' or 'rgb'
+DEFAULT_OBS = ObservationType('kin')  # 'kin' or 'rgb'
 DEFAULT_ACT = ActionType('rpm')  # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
 DEFAULT_AGENTS = 2
 DEFAULT_MA = False
@@ -81,16 +81,6 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                          features_extractor_kwargs=features_extractor_kwargs)
 
     policy_type = "MlpPolicy" if DEFAULT_OBS == ObservationType('kin') else "CnnPolicy"
-
-    # ActorCriticPolicy
-    # run_description = " ".join([
-    #     f"PPO-{policy_type}",
-    #     f"Action={str(DEFAULT_ACT).split('.')[1]}",
-    #     f"ActionBuffer=1",
-    #     f"FutureSteps=1",
-    #     # f"{net_arch=}",
-    #     f"{policy_kwargs=}"
-    # ])
     run_description = "_".join([
         f"PPO-{policy_type}",
         f"Action-{str(DEFAULT_ACT).split('.')[1]}"
@@ -101,11 +91,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                 tensorboard_log=str(filename / 'tb'),
                 verbose=1,
                 seed=10281991,
-                # clip_range=0.20,  # 0.1 will be slower but more steady. 0.2 default
                 vf_coef=1.25,
-                # omni settings
-                # n_steps=64,
-                # batch_size=16,
                 learning_rate=constant_lr_schedule,
                 n_epochs=4,
                 ent_coef=0.001,
@@ -113,18 +99,18 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                 policy_kwargs=policy_kwargs)
 
     #### Target cumulative rewards (problem-dependent) ##########
-    target_reward = 220  # 467. * 4 if not multiagent else 920.  # 467.
+    target_reward = episode_len * 24 * 0.9  # 24 is ctrl frequency
     callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=target_reward,
                                                      verbose=1)
     eval_callback = EvalCallback(eval_env,
                                  callback_on_new_best=callback_on_best,
                                  verbose=1,
-                                 best_model_save_path=filename,
-                                 log_path=filename,
+                                 best_model_save_path=str(filename),
+                                 log_path=str(filename),
                                  eval_freq=int(1000),
                                  deterministic=True,
                                  render=False)
-    model.learn(total_timesteps=2_000,  # 750_000, # int(1e6), # shorter training in GitHub Actions pytest
+    model.learn(total_timesteps=350_000,
                 callback=eval_callback,
                 log_interval=100,
                 tb_log_name=run_description)
@@ -144,15 +130,11 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
     ############################################################
     ############################################################
 
-    if local:
-        input("Press Enter to continue...")
-
-    # if os.path.isfile(filename+'/final_model.zip'):
-    #     path = filename+'/final_model.zip'
     if (filename / 'best_model.zip').is_file():
         path = filename / 'best_model.zip'
     else:
         print("[ERROR]: no model under the specified path", filename)
+        exit()
     model = PPO.load(path)
 
     #### Show (and record a video of) the model's performance ##
@@ -184,18 +166,18 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
         obs2 = obs.squeeze()
         act2 = action.squeeze()
         # print("Obs:", obs, "\tAction", action, "\tReward:", reward, "\tTerminated:", terminated, "\tTruncated:", truncated)
-        if DEFAULT_OBS == ObservationType.KIN:
-            logger.log(drone=0,
-                timestamp=i/test_env.CTRL_FREQ,
-                state=np.hstack([obs2[0:3],
-                                    np.zeros(4),
-                                    obs2[3:15],
-                                    act2
-                                    ]),
-                control=np.zeros(12),
-                reward=reward,
-                distance=info["total_distance"],
-                )
+        logger.log(drone=0,
+            timestamp=i/test_env.CTRL_FREQ,
+            state=test_env._getDroneStateVector(0),
+            control=np.zeros(12),
+            reward=reward,
+            distance=info["total_distance"],
+            )
+        # state=np.hstack([obs2[0:3],
+        #                     np.zeros(4),
+        #                     obs2[3:15],
+        #                     act2
+        #                     ]),
         test_env.render()
         print(terminated)
         sync(i, start, test_env.CTRL_TIMESTEP)
@@ -203,8 +185,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
             obs, info = test_env.reset(seed=42, options={})
     test_env.close()
 
-    if plot and DEFAULT_OBS == ObservationType.KIN:
-        logger.plot()
+    logger.plot()
 
 if __name__ == '__main__':
     #### Define and parse (optional) arguments for the script ##
