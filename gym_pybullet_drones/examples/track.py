@@ -21,7 +21,7 @@ DEFAULT_RECORD_VIDEO = False
 DEFAULT_OUTPUT_FOLDER = 'results'
 DEFAULT_COLAB = True
 
-DEFAULT_OBS = ObservationType('kin')  # 'kin' or 'rgb'
+DEFAULT_OBS = ObservationType('rgb')  # 'kin' or 'rgb'
 DEFAULT_ACT = ActionType('rpm')  # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
 DEFAULT_AGENTS = 2
 DEFAULT_MA = False
@@ -57,7 +57,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
         local=True, episode_len=DEFAULT_EPISODE_LEN):
     filename = Path(output_folder) / 'save-latest'
     if not filename.exists():
-        filename.mkdir()
+        filename.mkdir(parents=True)
 
     train_env = make_vec_env(TrackAviary,
                              env_kwargs=dict(obs=DEFAULT_OBS,
@@ -75,14 +75,14 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
 
     ### Train the model #######################################
     net_arch = [256, 256, 256]
-    features_extractor_kwargs = dict()
+    features_extractor_kwargs = dict()  # NatureCNN
     policy_kwargs = dict(net_arch=net_arch,
-                         share_features_extractor=False,
+                         share_features_extractor=True,
                          features_extractor_kwargs=features_extractor_kwargs)
 
     policy_type = "MlpPolicy" if DEFAULT_OBS == ObservationType('kin') else "CnnPolicy"
     run_description = "_".join([
-        f"PPO-{policy_type}",
+        f"PPO-{policy_type}-depth",
         f"Action-{str(DEFAULT_ACT).split('.')[1]}"
     ])
 

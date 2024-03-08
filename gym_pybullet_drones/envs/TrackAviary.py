@@ -108,7 +108,8 @@ class TrackAviary(BaseRLAviary):
                  record=False,
                  obs: ObservationType = ObservationType.KIN,
                  act: ActionType = ActionType.RPM,
-                 episode_len: int = 8
+                 episode_len: int = 8,
+                 use_depth: bool = True,
                  ):
         """Initialization of a single agent RL environment.
 
@@ -153,6 +154,7 @@ class TrackAviary(BaseRLAviary):
 
         self.target_pos = np.zeros((num_tracking_drones, self.future_traj_steps, 3))
 
+        self.use_depth = use_depth
 
         # xyzs, rpys, waypoints = polygon_trajectory(ctrl_freq, n_sides=4, radius=0.5)
         xyzs, rpys, waypoints = circle(ctrl_freq, radius=0.3)
@@ -323,6 +325,10 @@ class TrackAviary(BaseRLAviary):
                 #                       frame_num=int(self.step_counter / self.IMG_CAPTURE_FREQ)
                 #                       )
             ret = self.rgb[0, :, :, 0:3].astype(np.uint8)
+            if self.use_depth:
+                expanded = np.expand_dims(self.dep[0], axis=-1)
+                expanded = (expanded * 255).astype(np.uint8)
+                ret = np.concatenate((ret, expanded), axis=2)
             return ret
         elif self.OBS_TYPE == ObservationType.KIN:
             base_action_size = 12 + (self.future_traj_steps * 3)
@@ -351,9 +357,10 @@ class TrackAviary(BaseRLAviary):
 
     def _observationSpace(self):
         if self.OBS_TYPE == ObservationType.RGB:
+            channels = 4 if self.use_depth else 3
             return spaces.Box(low=0,
                               high=255,
-                              shape=(self.IMG_RES[1], self.IMG_RES[0], 3), dtype=np.uint8)
+                              shape=(self.IMG_RES[1], self.IMG_RES[0], channels), dtype=np.uint8)
 
         #### OBS SPACE OF SIZE 12
         #### Observation vector ### X        Y        Z       Q1   Q2   Q3   Q4   R       P       Y       VX       VY       VZ       WX       WY       WZ
