@@ -21,13 +21,13 @@ DEFAULT_RECORD_VIDEO = False
 DEFAULT_OUTPUT_FOLDER = 'results'
 DEFAULT_COLAB = True
 
-DEFAULT_OBS = ObservationType('rgb')  # 'kin' or 'rgb'
+DEFAULT_OBS = ObservationType.MULTI
 DEFAULT_ACT = ActionType('rpm')  # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
 DEFAULT_AGENTS = 2
 DEFAULT_MA = False
 DEFAULT_EPISODE_LEN = 8  # usually 8
 
-MAX_LR = 0.0006
+MAX_LR = 0.0005
 
 
 def piecewise_lr_schedule(remaining_percent: float) -> float:  # designed for 400k
@@ -54,7 +54,7 @@ def constant_lr_schedule(remaining_percent: float) -> float:
 
 def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
         gui=DEFAULT_GUI, plot=True, colab=DEFAULT_COLAB, record_video=DEFAULT_RECORD_VIDEO,
-        local=True, episode_len=DEFAULT_EPISODE_LEN):
+        episode_len=DEFAULT_EPISODE_LEN):
     filename = Path(output_folder) / 'save-latest'
     if not filename.exists():
         filename.mkdir(parents=True)
@@ -80,9 +80,15 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                          share_features_extractor=True,
                          features_extractor_kwargs=features_extractor_kwargs)
 
-    policy_type = "MlpPolicy" if DEFAULT_OBS == ObservationType('kin') else "CnnPolicy"
+    observation_type = DEFAULT_OBS
+    # if observation_type == ObservationType.KIN:
+    #     policy_type = "MlpPolicy"
+    # elif observation_type == ObservationType.RGB:
+    #     policy_type = "CnnPolicy"
+    # else:
+    policy_type = "MultiInputPolicy"
     run_description = "_".join([
-        f"PPO-{policy_type}-depth",
+        f"PPO-{str(observation_type).split('.')[1]}-depth",
         f"Action-{str(DEFAULT_ACT).split('.')[1]}"
     ])
 
@@ -163,8 +169,6 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                                         deterministic=True
                                         )
         obs, reward, terminated, truncated, info = test_env.step(action)
-        obs2 = obs.squeeze()
-        act2 = action.squeeze()
         # print("Obs:", obs, "\tAction", action, "\tReward:", reward, "\tTerminated:", terminated, "\tTruncated:", truncated)
         logger.log(drone=0,
             timestamp=i/test_env.CTRL_FREQ,
@@ -173,11 +177,6 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
             reward=reward,
             distance=info["total_distance"],
             )
-        # state=np.hstack([obs2[0:3],
-        #                     np.zeros(4),
-        #                     obs2[3:15],
-        #                     act2
-        #                     ]),
         test_env.render()
         print(terminated)
         sync(i, start, test_env.CTRL_TIMESTEP)

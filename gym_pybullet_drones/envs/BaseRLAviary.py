@@ -26,7 +26,8 @@ class BaseRLAviary(BaseAviary):
                  record=False,
                  obs: ObservationType=ObservationType.KIN,
                  act: ActionType=ActionType.RPM,
-                 external_agents=None
+                 external_agents=None,
+                 action_buffer_size=None
                  ):
         """Initialization of a generic single and multi-agent RL environment.
 
@@ -64,15 +65,13 @@ class BaseRLAviary(BaseAviary):
 
         """
         #### Create a buffer for the last .5 sec of actions ########
-        # self.ACTION_BUFFER_SIZE = int(ctrl_freq//2)
-        self.ACTION_BUFFER_SIZE = 1
+        self.ACTION_BUFFER_SIZE = action_buffer_size if action_buffer_size is not None else int(ctrl_freq//2)
         self.action_buffer = deque(maxlen=self.ACTION_BUFFER_SIZE)
         ####
-        vision_attributes = True if obs == ObservationType.RGB else False
+        vision_attributes = False if obs == ObservationType.KIN else True
         self.OBS_TYPE = obs
         self.ACT_TYPE = act
 
-        self.DISCRETE_MAX = 16
         #### Create integrated controllers #########################
         if act in [ActionType.PID, ActionType.VEL, ActionType.ONE_D_PID]:
             os.environ['KMP_DUPLICATE_LIB_OK']='True'
@@ -90,8 +89,8 @@ class BaseRLAviary(BaseAviary):
                          ctrl_freq=ctrl_freq,
                          gui=gui,
                          record=record, 
-                         obstacles=True, # Add obstacles for RGB observations and/or FlyThruGate
-                         user_debug_gui=False, # Remove of RPM sliders from all single agent learning aviaries
+                         obstacles=True,  # Add obstacles for RGB observations and/or FlyThruGate
+                         user_debug_gui=False,  # Remove of RPM sliders from all single agent learning aviaries
                          vision_attributes=vision_attributes,
                          external_agents=external_agents
                          )
@@ -143,7 +142,7 @@ class BaseRLAviary(BaseAviary):
             A Box of size NUM_DRONES x 4, 3, or 1, depending on the action type.
 
         """
-        if self.ACT_TYPE in [ActionType.RPM, ActionType.VEL, ActionType.DISC_RPM]:
+        if self.ACT_TYPE in [ActionType.RPM, ActionType.VEL]:
             size = 4
         elif self.ACT_TYPE==ActionType.PID:
             size = 3
@@ -155,13 +154,6 @@ class BaseRLAviary(BaseAviary):
         
         for i in range(self.ACTION_BUFFER_SIZE):
             self.action_buffer.append(np.zeros((self.NUM_DRONES,size)))
-
-        if self.ACT_TYPE == ActionType.DISC_RPM:
-            # shape = np.array([self.DISCRETE_MAX * np.ones(size) for i in range(self.NUM_DRONES)])
-            shape = [
-                self.DISCRETE_MAX, self.DISCRETE_MAX, self.DISCRETE_MAX, self.DISCRETE_MAX
-            ]
-            return spaces.MultiDiscrete(shape)
 
         act_lower_bound = np.array([-1*np.ones(size) for i in range(self.NUM_DRONES)])
         act_upper_bound = np.array([+1*np.ones(size) for i in range(self.NUM_DRONES)])
@@ -202,9 +194,6 @@ class BaseRLAviary(BaseAviary):
         for k in range(action.shape[0]):
             target = action[k, :]
             if self.ACT_TYPE == ActionType.RPM:
-                rpm[k,:] = np.array(self.HOVER_RPM * (1+0.05*target))
-            elif self.ACT_TYPE == ActionType.DISC_RPM:
-                target = (((target / self.DISCRETE_MAX) * 2) - 1)
                 rpm[k,:] = np.array(self.HOVER_RPM * (1+0.05*target))
             elif self.ACT_TYPE == ActionType.PID:
                 state = self._getDroneStateVector(k)
@@ -281,7 +270,7 @@ class BaseRLAviary(BaseAviary):
             act_lo = -1
             act_hi = +1
             for i in range(self.ACTION_BUFFER_SIZE):
-                if self.ACT_TYPE in [ActionType.RPM, ActionType.VEL, ActionType.DISC_RPM]:
+                if self.ACT_TYPE in [ActionType.RPM, ActionType.VEL]:
                     obs_lower_bound = np.hstack([obs_lower_bound, np.array([[act_lo,act_lo,act_lo,act_lo] for i in range(self.NUM_DRONES)])])
                     obs_upper_bound = np.hstack([obs_upper_bound, np.array([[act_hi,act_hi,act_hi,act_hi] for i in range(self.NUM_DRONES)])])
                 elif self.ACT_TYPE==ActionType.PID:
@@ -327,7 +316,6 @@ class BaseRLAviary(BaseAviary):
             for i in range(self.NUM_DRONES):
                 #obs = self._clipAndNormalizeState(self._getDroneStateVector(i))
                 obs = self._getDroneStateVector(i)
-                # todo: ajr -- this ok?
                 # For each drone, obs12 will be:
                 #   0-2: x, y, z
                 #   3-5: roll, pitch, yaw

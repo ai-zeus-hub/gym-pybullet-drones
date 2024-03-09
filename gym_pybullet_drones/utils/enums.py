@@ -39,11 +39,11 @@ class ActionType(Enum):
     VEL = "vel"                 # Velocity input (using PID control)
     ONE_D_RPM = "one_d_rpm"     # 1D (identical input to all motors) with RPMs
     ONE_D_PID = "one_d_pid"     # 1D (identical input to all motors) with PID control
-    DISC_RPM = "disc_rpm"       # RPMS with a discrete action space
 
 ################################################################################
 
 class ObservationType(Enum):
     """Observation type enumeration class."""
-    KIN = "kin"     # Kinematic information (pose, linear and angular velocities)
-    RGB = "rgb"     # RGB camera capture in each drone's POV
+    KIN = "kin"      # Kinematic information (pose, linear and angular velocities)
+    RGB = "rgb"      # RGB camera capture in each drone's POV
+    MULTI = "multi"  # Kinematic and RGB information
