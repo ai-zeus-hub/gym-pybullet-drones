@@ -135,7 +135,11 @@ class DroneAgent(BaseAgent):
     def kinematics(self):
         return self.kinematics
 
-    def reset(self):
+    def reset(self, init_xyz: np.array=None, init_rpy: np.array=None):
+        if init_xyz is not None:
+            self.INIT_XYZ = init_xyz
+        if init_rpy is not None:
+            self.INIT_RPY = init_rpy
         self.AGENT_ID = p.loadURDF(pkg_resources.resource_filename('gym_pybullet_drones', 'assets/' + self.URDF),
                                    self.INIT_XYZ,
                                    p.getQuaternionFromEuler(self.INIT_RPY),

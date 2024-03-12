@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Optional
 
 from gym_pybullet_drones.agents.DroneAgent import DroneAgent
 from gym_pybullet_drones.control.DSLPIDControl import DSLPIDControl
@@ -13,8 +14,8 @@ class WaypointDroneAgent(DroneAgent):
                  physics: Physics = Physics.PYB,
                  pyb_freq: int = 240,
                  ctrl_freq: int = 240,
-                 waypoints=None,
-                 episode_length_sec=5):
+                 waypoints: Optional[np.array] = None,
+                 episode_length_sec: int = 5):
         super().__init__(drone_model=drone_model,
                          initial_xyz=initial_xyz,
                          initial_rpy=initial_rpy,
@@ -23,7 +24,7 @@ class WaypointDroneAgent(DroneAgent):
                          physics=physics)
         self.EPISODE_LEN_SEC = episode_length_sec
         self.ctrl = DSLPIDControl(drone_model=drone_model, g=self.G)
-        self.waypoints = waypoints
+        self.waypoints = waypoints if waypoints is not None else np.array([[0, 0, 0]])
         self.wp_counter = 0
         self.cur_rpms = np.zeros(4)
 
@@ -36,13 +37,13 @@ class WaypointDroneAgent(DroneAgent):
         #      self.INIT_XYZ[2]]),
 
         rpms, _, _ = self.ctrl.computeControl(control_timestep=self.CTRL_TIMESTEP,
-                                                cur_pos=self.kinematics.pos,
-                                                cur_quat=self.kinematics.quat,
-                                                cur_vel=self.kinematics.vel,
-                                                cur_ang_vel=self.kinematics.ang_v,
-                                                target_pos=self.current_waypoint(),
-                                                target_rpy=self.INIT_RPY
-                                                )
+                                              cur_pos=self.kinematics.pos,
+                                              cur_quat=self.kinematics.quat,
+                                              cur_vel=self.kinematics.vel,
+                                              cur_ang_vel=self.kinematics.ang_v,
+                                              target_pos=self.current_waypoint(),
+                                              target_rpy=self.INIT_RPY
+                                              )
         rpms = np.clip(rpms, 0, self.MAX_RPM)
         return rpms
 
@@ -56,6 +57,13 @@ class WaypointDroneAgent(DroneAgent):
             raise NotImplementedError
         self.last_action = self.cur_rpms
 
+    def reset(self, init_xyz: np.array=None, init_rpy: np.array=None, waypoints: Optional[np.array] = None):
+        super().reset(init_xyz, init_rpy)
+        if waypoints is not None:
+            self.waypoints = waypoints
+        self.wp_counter = 0
+        self.cur_rpms = np.zeros(4)
+        self.ctrl.reset()
 
     # def clipAndNormalizeState(self, state):
     #     """Normalizes a drone's state to the [-1,1] range.
@@ -105,7 +113,3 @@ class WaypointDroneAgent(DroneAgent):
     #                                   normalized_ang_vel,
     #                                   ]).reshape(16, )
     #     return norm_and_clipped
-
-    def reset(self):
-        super().reset()
-        self.ctrl.reset()

@@ -57,6 +57,8 @@ def polygon_trajectory(control_freq_hz, period=6, height=1.0, radius=1.0, n_side
     Returns:
     - Tuple of initial position, initial orientation (roll, pitch, yaw), and an array of waypoints.
     """
+    if n_sides == 0:
+        return circle(control_freq_hz, radius=radius, height=height, period=period)
     # Initial position and orientation
     init_xyzs = np.array([0, 0, height])
     init_rpys = np.array([0, 0, 0])
@@ -81,8 +83,52 @@ def polygon_trajectory(control_freq_hz, period=6, height=1.0, radius=1.0, n_side
             waypoints[i * num_wp_per_side + j, :2] = waypoint
             waypoints[i * num_wp_per_side + j, 2] = height
 
-    return init_xyzs, init_rpys, waypoints
+    neg_wp_0 = -waypoints[0, :2]
+    for i in range(len(waypoints)):
+        waypoints[i, :2] = waypoints[i, :2] + neg_wp_0
+    return waypoints[0], init_rpys, waypoints
 
+# def polygon_trajectory(control_freq_hz, period=6, height=1.0, radius=1.0, n_sides=3):
+#     """
+#     Generates waypoints along a polygon path with n sides, starting at [0, 0, height].
+#
+#     Parameters:
+#     - control_freq_hz: Control frequency in Hz, determining the number of waypoints per second.
+#     - period: Total time to complete one cycle of the polygon path in seconds.
+#     - height: The height (Z coordinate) at which the polygon path should be generated.
+#     - radius: The circumradius of the polygon, which determines its size.
+#     - n_sides: The number of sides of the polygon.
+#
+#     Returns:
+#     - Tuple of initial position, initial orientation (roll, pitch, yaw), and an array of waypoints.
+#     """
+#     # Initial position and orientation
+#     init_xyzs = np.array([0, 0, height])  # Starts at [0, 0, height]
+#     init_rpys = np.array([0, 0, 0])
+#
+#     # Calculate the number of waypoints per side
+#     num_wp_per_side = control_freq_hz * period // n_sides
+#     waypoints = np.zeros((num_wp_per_side * n_sides + 1, 3))  # +1 for the initial waypoint
+#
+#     # Generate vertices of the polygon relative to the center [0, 0, height]
+#     vertices = np.array([
+#         [radius * np.cos(2 * np.pi * i / n_sides), radius * np.sin(2 * np.pi * i / n_sides), height]
+#         for i in range(n_sides)
+#     ])
+#
+#     # Set the first waypoint to the initial position
+#     waypoints[0] = init_xyzs
+#
+#     # Generate waypoints for each side of the polygon
+#     for i in range(n_sides):
+#         start_vertex = vertices[i]  # Start from the first vertex for the first side
+#         end_vertex = vertices[(i + 1) % n_sides]
+#         for j in range(1, num_wp_per_side + 1):  # Start from 1 to avoid duplicating the initial waypoint
+#             t = j / num_wp_per_side
+#             waypoint = (1 - t) * start_vertex + t * end_vertex
+#             waypoints[i * num_wp_per_side + j] = waypoint
+#
+#     return init_xyzs, init_rpys, waypoints
 
 class TrackAviary(BaseRLAviary):
     ################################################################################
@@ -99,6 +145,7 @@ class TrackAviary(BaseRLAviary):
                  episode_len: int = 8,
                  distance_reward_scale: float = 1.2,
                  use_depth: bool = True,
+                 max_distance: float = 2.,
                  ):
         """Initialization of a single agent RL environment.
 
@@ -141,9 +188,10 @@ class TrackAviary(BaseRLAviary):
 
         self.use_depth = use_depth
         self.distance_reward_scale = distance_reward_scale
+        self.env_idx = 0
+        self.max_distance = max_distance
 
-        # xyzs, rpys, waypoints = polygon_trajectory(ctrl_freq, n_sides=4, radius=0.5)
-        xyzs, rpys, waypoints = circle(ctrl_freq, radius=0.3)
+        xyzs, rpys, waypoints = polygon_trajectory(ctrl_freq, n_sides=self.env_idx, radius=0.5)
 
         tracked_drone = WaypointDroneAgent(initial_xyz=xyzs,
                                            initial_rpy=rpys,
@@ -251,7 +299,7 @@ class TrackAviary(BaseRLAviary):
         """
         state = self._getDroneStateVector(0)
         total_dist, x_dist, y_dist, z_dist = self._distance_from_next_target()
-        if ((total_dist > 2.) or       # Truncate when the drone is too far away
+        if ((total_dist > self.max_distance) or       # Truncate when the drone is too far away
             # (z_dist > .2) or
             (abs(state[7]) > .4) or
             (abs(state[8]) > .4)     # Truncate when the drone is too tilted
@@ -303,6 +351,14 @@ class TrackAviary(BaseRLAviary):
         # self.traj_scale = self.traj_scale_dist.sample()
         # traj_w = self.traj_w_dist.sample()
         # self.traj_w = torch.randn_like(traj_w).sign() * traj_w
+
+        polygon_shapes = [0, 3, 4, 5, 6]
+        self.env_idx = np.random.choice(polygon_shapes)
+        # self.env_idx = 3
+        xyzs, rpys, waypoints = polygon_trajectory(self.CTRL_FREQ, n_sides=self.env_idx, radius=0.5)
+
+        for agent in self.EXTERNAL_AGENTS:
+            agent.reset(xyzs, rpys, waypoints)
         return super().reset(seed, options)
 
     def _computeObs(self):
@@ -320,12 +376,13 @@ class TrackAviary(BaseRLAviary):
                 #                       )
             img = self.rgb[0, :, :, 0:3].astype(np.uint8)  # strip off alpha channel
             if self.use_depth:
-                expanded = np.expand_dims(self.dep[0], axis=-1)
-                expanded = (expanded * 255).astype(np.uint8)
-                img = np.concatenate((img, expanded), axis=2)
+                # expanded = np.expand_dims(self.dep[0], axis=-1)
+                # expanded = (expanded * 255).astype(np.uint8)
+                # img = np.concatenate((img, expanded), axis=2)
+                observation["depth"] = self.dep[0] * 2 - 1
             observation["img"] = img
         if self.OBS_TYPE == ObservationType.KIN or self.OBS_TYPE == ObservationType.MULTI:
-            base_kin_obs_size = 12
+            base_kin_obs_size = 9
             obs = np.zeros((self.NUM_DRONES, base_kin_obs_size))
             for i in range(self.NUM_DRONES):
                 state = self._getDroneStateVector(i)
@@ -334,31 +391,85 @@ class TrackAviary(BaseRLAviary):
                 #   3-5: vx, vy, vz
                 #   6-8: wx, wy, wz
                 #  9-11: x_rpos, y_rpos, z_rpos
-                pos = state[0:3]
-                rpos = self._target_waypoint() - pos
-                obs[i, :] = np.hstack([state[7:16], rpos.flatten()]).reshape(base_kin_obs_size,)
-            kin = np.array([obs[i, :] for i in range(self.NUM_DRONES)]).astype('float32')
+
+                # Normalize quats:
+                # quaternions = state[3:7]
+                # unit_quaternions = quaternions / np.linalg.norm(quaternions)
+
+                # rpy
+                rpy = state[7:10]  # needed if we instead just use quats?
+                norm_rpy = rpy / np.pi
+
+                # linear velocity
+                vel = state[10:13]
+                max_vel = np.array([3.5, 3.5, 3.5])  # empirically observed in simulation
+                clipped_vel = np.clip(vel, -max_vel, max_vel)
+                norm_vel = np.clip(clipped_vel, -max_vel, max_vel) / max_vel
+                for j in range(len(max_vel)):
+                    if vel[j] > max_vel[j]:
+                        print(f"***WARNING: max_vel too low! Saw {vel=} and {max_vel=}")
+
+                # angular velocity
+                w_vel = state[13:16]
+                max_w_vel = np.array([16, 16, 16])  # empirically observed in simulation 13.1, 8.465
+                clipped_w_vel = np.clip(w_vel, -max_w_vel, max_w_vel)
+                norm_w_vel = np.clip(clipped_w_vel, -max_w_vel, max_w_vel) / max_w_vel
+                for j in range(len(w_vel)):
+                    if w_vel[j] > max_w_vel[j]:
+                        print(f"***WARNING: max_w_vel too low! Saw {w_vel=} and {max_w_vel=}")
+
+                # relative position
+                # pos = state[0:3]
+                # rpos = self._target_waypoint() - pos
+                # # distance = np.linalg.norm(rpos, axis=-1)
+                # # norm_rpos = rpos / (np.linalg.norm(rpos, axis=-1) + 1e-6)
+                # norm_rpos = np.clip(rpos / self.max_distance, np.array([-1, -1, -1]), np.array([1, 1, 1]))
+
+
+                obs[i, :] = np.hstack([norm_rpy, norm_vel, norm_w_vel]).reshape(base_kin_obs_size,)
+                # obs[i, :] = np.hstack([norm_rpy, norm_vel, norm_w_vel, norm_rpos.flatten()]).reshape(base_kin_obs_size,)
+                # obs[i, :] = np.hstack([rpy, vel, w_vel, rpos.flatten()]).reshape(base_kin_obs_size, )
+                # obs[i, :] = np.hstack([norm_rpy, norm_vel, norm_w_vel, rpos.flatten()]).reshape(base_kin_obs_size, )
+            obs = np.array([obs[i, :] for i in range(self.NUM_DRONES)]).astype('float32')
 
             #### Add action buffer to observation #######################
             for i in range(self.ACTION_BUFFER_SIZE):
-                kin = np.hstack([kin, np.array([self.action_buffer[i][j, :] for j in range(self.NUM_DRONES)])])
-            observation["kin"] = kin
+                obs = np.hstack([obs, np.array([self.action_buffer[i][j, :] for j in range(self.NUM_DRONES)])])
+            observation["kin"] = obs
         return observation
 
     def _observationSpace(self):
         dict_space = gymnasium.spaces.Dict()
         if self.OBS_TYPE == ObservationType.RGB or self.OBS_TYPE == ObservationType.MULTI:
-            channels = 4 if self.use_depth else 3
+            # channels = 4 if self.use_depth else 3
+            channels = 3
             dict_space["img"] = spaces.Box(low=0,
                                            high=255,
                                            shape=(self.IMG_RES[1], self.IMG_RES[0], channels), dtype=np.uint8)
+            if self.use_depth:
+                dict_space["depth"] = spaces.Box(low=-1., high=+1.,
+                                                 shape=(self.IMG_RES[1], self.IMG_RES[0]))
         if self.OBS_TYPE == ObservationType.KIN or self.OBS_TYPE == ObservationType.MULTI:
             #### OBS SPACE OF SIZE 12
             #### Observation vector ### R, P, Y, VX, VY, VZ, WX, WY, WZ, X_R, Y_R, Z_R
-            lo = -np.inf
-            hi = np.inf
-            obs_lower_bound = np.array([[lo,lo,lo,lo,lo,lo,lo,lo,lo,lo,lo,lo] for _ in range(self.NUM_DRONES)])
-            obs_upper_bound = np.array([[hi,hi,hi,hi,hi,hi,hi,hi,hi,hi,hi,hi] for _ in range(self.NUM_DRONES)])
+            # lo = -np.inf
+            # hi = np.inf
+            # obs_lower_bound = np.array([[lo,lo,lo,lo,lo,lo,lo,lo,lo,lo,lo,lo] for _ in range(self.NUM_DRONES)])
+            # obs_upper_bound = np.array([[hi,hi,hi,hi,hi,hi,hi,hi,hi,hi,hi,hi] for _ in range(self.NUM_DRONES)])
+
+            # with rpos
+            norm_lo = -1
+            norm_hi = +1
+            obs_lower_bound = np.array([[norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo] for _ in range(self.NUM_DRONES)])
+            obs_upper_bound = np.array([[norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,] for _ in range(self.NUM_DRONES)])
+
+            # without rpos
+            norm_lo = -1
+            norm_hi = +1
+            obs_lower_bound = np.array([[norm_lo, norm_lo, norm_lo, norm_lo, norm_lo, norm_lo, norm_lo, norm_lo,
+                                         norm_lo] for _ in range(self.NUM_DRONES)])
+            obs_upper_bound = np.array([[norm_hi, norm_hi, norm_hi, norm_hi, norm_hi, norm_hi, norm_hi, norm_hi,
+                                         norm_hi] for _ in range(self.NUM_DRONES)])
 
             # for _ in range(self.future_traj_steps):
             #     obs_lower_bound = np.hstack([obs_lower_bound, np.array([[lo, lo, lo]])])

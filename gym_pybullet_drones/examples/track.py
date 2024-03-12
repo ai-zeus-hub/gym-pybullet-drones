@@ -5,7 +5,7 @@ import numpy as np
 from pathlib import Path
 
 from stable_baselines3 import PPO
-from stable_baselines3.common.policies import ActorCriticPolicy
+from stable_baselines3.common.policies import ActorCriticPolicy, NatureCNN
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecFrameStack
 from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnRewardThreshold
@@ -16,6 +16,9 @@ from gym_pybullet_drones.envs.TrackAviary import TrackAviary
 from gym_pybullet_drones.utils.utils import sync, str2bool
 from gym_pybullet_drones.utils.enums import ObservationType, ActionType
 
+from gym_pybullet_drones.bullet_track.bullet_track_extractor import CustomCombinedExtractor
+
+
 DEFAULT_GUI = True
 DEFAULT_RECORD_VIDEO = False
 DEFAULT_OUTPUT_FOLDER = 'results'
@@ -23,10 +26,7 @@ DEFAULT_COLAB = True
 
 DEFAULT_OBS = ObservationType.MULTI
 DEFAULT_ACT = ActionType('rpm')  # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
-DEFAULT_AGENTS = 2
-DEFAULT_MA = False
 DEFAULT_EPISODE_LEN = 8  # usually 8
-
 MAX_LR = 0.0005
 
 
@@ -52,7 +52,7 @@ def constant_lr_schedule(remaining_percent: float) -> float:
     return MAX_LR
 
 
-def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
+def run(output_folder=DEFAULT_OUTPUT_FOLDER,
         gui=DEFAULT_GUI, plot=True, colab=DEFAULT_COLAB, record_video=DEFAULT_RECORD_VIDEO,
         episode_len=DEFAULT_EPISODE_LEN):
     filename = Path(output_folder) / 'save-latest'
@@ -75,21 +75,19 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
 
     ### Train the model #######################################
     net_arch = [256, 256, 256]
-    features_extractor_kwargs = dict()  # NatureCNN
+    features_extractor_kwargs = dict(cnn_output_dim=3)  # NatureCNN
     policy_kwargs = dict(net_arch=net_arch,
                          share_features_extractor=True,
+                         features_extractor_class=CustomCombinedExtractor,
                          features_extractor_kwargs=features_extractor_kwargs)
 
     observation_type = DEFAULT_OBS
-    # if observation_type == ObservationType.KIN:
-    #     policy_type = "MlpPolicy"
-    # elif observation_type == ObservationType.RGB:
-    #     policy_type = "CnnPolicy"
-    # else:
     policy_type = "MultiInputPolicy"
     run_description = "_".join([
-        f"PPO-{str(observation_type).split('.')[1]}-depth",
-        f"Action-{str(DEFAULT_ACT).split('.')[1]}"
+        f"PPO-{str(observation_type).split('.')[1]}-mobile-net-depth-mlp",
+        f"Action-{str(DEFAULT_ACT).split('.')[1]}",
+        f"LR={MAX_LR}",
+        f"fd={features_extractor_kwargs['cnn_output_dim']}"
     ])
 
     model = PPO(policy_type,
@@ -116,7 +114,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                                  eval_freq=int(1000),
                                  deterministic=True,
                                  render=False)
-    model.learn(total_timesteps=350_000,
+    model.learn(total_timesteps=450_000,
                 callback=eval_callback,
                 log_interval=100,
                 tb_log_name=run_description)
@@ -151,7 +149,7 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
                            record=record_video)
     test_env_nogui = TrackAviary(obs=DEFAULT_OBS, act=DEFAULT_ACT, episode_len=episode_len)
     logger = Logger(logging_freq_hz=int(test_env.CTRL_FREQ),
-                num_drones=DEFAULT_AGENTS if multiagent else 1,
+                num_drones=1,
                 output_folder=output_folder,
                 colab=colab
                 )
@@ -189,7 +187,6 @@ def run(multiagent=DEFAULT_MA, output_folder=DEFAULT_OUTPUT_FOLDER,
 if __name__ == '__main__':
     #### Define and parse (optional) arguments for the script ##
     parser = argparse.ArgumentParser(description='Single agent reinforcement learning example script')
-    parser.add_argument('--multiagent',         default=DEFAULT_MA,            type=str2bool,      help='Whether to use example LeaderFollower instead of Hover (default: False)', metavar='')
     parser.add_argument('--gui',                default=DEFAULT_GUI,           type=str2bool,      help='Whether to use PyBullet GUI (default: True)', metavar='')
     parser.add_argument('--record_video',       default=DEFAULT_RECORD_VIDEO,  type=str2bool,      help='Whether to record a video (default: False)', metavar='')
     parser.add_argument('--output_folder',      default=DEFAULT_OUTPUT_FOLDER, type=str,           help='Folder where to save logs (default: "results")', metavar='')
