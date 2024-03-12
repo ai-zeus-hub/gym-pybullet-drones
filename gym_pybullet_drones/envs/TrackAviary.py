@@ -379,7 +379,10 @@ class TrackAviary(BaseRLAviary):
                 # expanded = np.expand_dims(self.dep[0], axis=-1)
                 # expanded = (expanded * 255).astype(np.uint8)
                 # img = np.concatenate((img, expanded), axis=2)
-                observation["depth"] = self.dep[0] * 2 - 1
+                reshaped_array = self.dep[0].reshape((6, 8, 8, 8))
+                downsampled_array = reshaped_array.min(axis=(1, 3))
+                observation["depth"] = downsampled_array
+                # observation["depth"] = self.dep[0] * 2 - 1
             observation["img"] = img
         if self.OBS_TYPE == ObservationType.KIN or self.OBS_TYPE == ObservationType.MULTI:
             base_kin_obs_size = 9
@@ -448,7 +451,7 @@ class TrackAviary(BaseRLAviary):
                                            shape=(self.IMG_RES[1], self.IMG_RES[0], channels), dtype=np.uint8)
             if self.use_depth:
                 dict_space["depth"] = spaces.Box(low=-1., high=+1.,
-                                                 shape=(self.IMG_RES[1], self.IMG_RES[0]))
+                                                 shape=(self.IMG_RES[1]//8, self.IMG_RES[0]//8))
         if self.OBS_TYPE == ObservationType.KIN or self.OBS_TYPE == ObservationType.MULTI:
             #### OBS SPACE OF SIZE 12
             #### Observation vector ### R, P, Y, VX, VY, VZ, WX, WY, WZ, X_R, Y_R, Z_R
@@ -457,11 +460,11 @@ class TrackAviary(BaseRLAviary):
             # obs_lower_bound = np.array([[lo,lo,lo,lo,lo,lo,lo,lo,lo,lo,lo,lo] for _ in range(self.NUM_DRONES)])
             # obs_upper_bound = np.array([[hi,hi,hi,hi,hi,hi,hi,hi,hi,hi,hi,hi] for _ in range(self.NUM_DRONES)])
 
-            # with rpos
-            norm_lo = -1
-            norm_hi = +1
-            obs_lower_bound = np.array([[norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo] for _ in range(self.NUM_DRONES)])
-            obs_upper_bound = np.array([[norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,] for _ in range(self.NUM_DRONES)])
+            # # with rpos
+            # norm_lo = -1
+            # norm_hi = +1
+            # obs_lower_bound = np.array([[norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo] for _ in range(self.NUM_DRONES)])
+            # obs_upper_bound = np.array([[norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,] for _ in range(self.NUM_DRONES)])
 
             # without rpos
             norm_lo = -1
