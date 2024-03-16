@@ -17,3 +17,7 @@ To solved, I switched to the exponentiation function.
 Observation space not including relative position.
 
 The drone struggles to train when the target is at high velocity.
+
+Normalization was an issue, and tuning the min-max clipping, particular for angular velocity.
+
+Removing the relative position is proving to be very difficult.

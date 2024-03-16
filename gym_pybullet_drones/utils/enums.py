@@ -47,3 +47,8 @@ class ObservationType(Enum):
     KIN = "kin"      # Kinematic information (pose, linear and angular velocities)
     RGB = "rgb"      # RGB camera capture in each drone's POV
     MULTI = "multi"  # Kinematic and RGB information
+
+class DepthType(Enum):
+    IMAGE = "image"
+    STATE = "state"
+    NONE = "none"
