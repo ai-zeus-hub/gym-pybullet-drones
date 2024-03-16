@@ -50,5 +50,5 @@ class ObservationType(Enum):
 
 class DepthType(Enum):
     IMAGE = "image"
-    STATE = "state"
+    DOWN_SAMPLED = "down_sampled"
     NONE = "none"

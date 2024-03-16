@@ -105,11 +105,29 @@ class BulletTrackCNN(BaseFeaturesExtractor):
         from torchvision.models import mobilenet_v3_small, MobileNet_V3_Small_Weights
         self.mobilenet_v3_small = mobilenet_v3_small(pretrained=True)
 
-        # # Replace the classifier of the MobileNetV3 Small to adapt to the task
-        # num_features = self.mobilenet_v3_small.classifier[-1].in_features  # Extract the number of input features for the classifier
-        # self.mobilenet_v3_small.classifier = nn.Sequential(
-        #     nn.Linear(num_features, self.features_dim)  # Output layer for x and y coordinates
-        # )
+        # Check the number of input channels (3 for RGB, 4 for RGB-D)
+        num_input_channels = observation_space.shape[0]
+        if num_input_channels not in [3, 4]:
+            raise ValueError("Unsupported number of input channels. Expected 3 (RGB) or 4 (RGB-D).")
+
+        # If the input has 4 channels, adapt the first convolutional layer to accept RGB-D input
+        if num_input_channels == 4:
+            first_conv_layer = self.mobilenet_v3_small.features[0][0]
+            new_first_conv_layer = nn.Conv2d(
+                in_channels=4,  # Change from 3 to 4 to accept RGB-D input
+                out_channels=first_conv_layer.out_channels,
+                kernel_size=first_conv_layer.kernel_size,
+                stride=first_conv_layer.stride,
+                padding=first_conv_layer.padding,
+                bias=first_conv_layer.bias
+            )
+            # Copy the weights from the first 3 channels of the pre-trained model
+            with th.no_grad():
+                new_first_conv_layer.weight[:, :3] = first_conv_layer.weight
+            # Initialize the weights for the new depth channel
+            nn.init.kaiming_normal_(new_first_conv_layer.weight[:, 3:], mode='fan_out', nonlinearity='relu')
+            # Replace the first convolutional layer in the model with the new one
+            self.mobilenet_v3_small.features[0][0] = new_first_conv_layer
 
         # Identify the correct number of output features from the last convolutional layer
         # This is usually the number of channels in the output of the last block before the classifier

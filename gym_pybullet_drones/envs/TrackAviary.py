@@ -7,7 +7,7 @@ from gymnasium import spaces
 
 from gym_pybullet_drones.agents.WaypointDroneAgent import WaypointDroneAgent
 from gym_pybullet_drones.envs.BaseRLAviary import BaseRLAviary
-from gym_pybullet_drones.utils.enums import DroneModel, Physics, ActionType, ObservationType
+from gym_pybullet_drones.utils.enums import DroneModel, Physics, ActionType, ObservationType, DepthType
 
 
 def scale_time(t, a: float = 1.0):
@@ -144,7 +144,7 @@ class TrackAviary(BaseRLAviary):
                  act: ActionType = ActionType.RPM,
                  episode_len: int = 8,
                  distance_reward_scale: float = 1.2,
-                 use_depth: bool = True,
+                 depth_type: DepthType = DepthType.IMAGE,
                  max_distance: float = 2.,
                  ):
         """Initialization of a single agent RL environment.
@@ -186,7 +186,7 @@ class TrackAviary(BaseRLAviary):
         # self.traj_scale = torch.zeros((num_tracking_drones, 3))
         # self.traj_w = torch.ones((num_tracking_drones,))
 
-        self.use_depth = use_depth
+        self.depth_type = depth_type
         self.distance_reward_scale = distance_reward_scale
         self.env_idx = 0
         self.max_distance = max_distance
@@ -375,14 +375,16 @@ class TrackAviary(BaseRLAviary):
                 #                       frame_num=int(self.step_counter / self.IMG_CAPTURE_FREQ)
                 #                       )
             img = self.rgb[0, :, :, 0:3].astype(np.uint8)  # strip off alpha channel
-            if self.use_depth:
-                # expanded = np.expand_dims(self.dep[0], axis=-1)
-                # expanded = (expanded * 255).astype(np.uint8)
-                # img = np.concatenate((img, expanded), axis=2)
+            if self.depth_type == DepthType.IMAGE:
+                expanded = np.expand_dims(self.dep[0], axis=-1)
+                expanded = (expanded * 255).astype(np.uint8)
+                img = np.concatenate((img, expanded), axis=2)
+            elif self.depth_type == DepthType.DOWN_SAMPLED:
                 reshaped_array = self.dep[0].reshape((6, 8, 8, 8))
-                downsampled_array = reshaped_array.min(axis=(1, 3))
-                observation["depth"] = downsampled_array
-                # observation["depth"] = self.dep[0] * 2 - 1
+                down_sampled_array = reshaped_array.min(axis=(1, 3))
+                observation["depth"] = down_sampled_array * 2 - 1
+            else:
+                print("Depth ignored")
             observation["img"] = img
         if self.OBS_TYPE == ObservationType.KIN or self.OBS_TYPE == ObservationType.MULTI:
             base_kin_obs_size = 9
@@ -444,14 +446,13 @@ class TrackAviary(BaseRLAviary):
     def _observationSpace(self):
         dict_space = gymnasium.spaces.Dict()
         if self.OBS_TYPE == ObservationType.RGB or self.OBS_TYPE == ObservationType.MULTI:
-            # channels = 4 if self.use_depth else 3
-            channels = 3
+            channels = 4 if self.depth_type == DepthType.IMAGE else 3
             dict_space["img"] = spaces.Box(low=0,
                                            high=255,
                                            shape=(self.IMG_RES[1], self.IMG_RES[0], channels), dtype=np.uint8)
-            if self.use_depth:
-                dict_space["depth"] = spaces.Box(low=-1., high=+1.,
-                                                 shape=(self.IMG_RES[1]//8, self.IMG_RES[0]//8))
+        if self.depth_type == DepthType.DOWN_SAMPLED:
+            dict_space["depth"] = spaces.Box(low=-1., high=+1.,
+                                             shape=(self.IMG_RES[1]//8, self.IMG_RES[0]//8))
         if self.OBS_TYPE == ObservationType.KIN or self.OBS_TYPE == ObservationType.MULTI:
             #### OBS SPACE OF SIZE 12
             #### Observation vector ### R, P, Y, VX, VY, VZ, WX, WY, WZ, X_R, Y_R, Z_R
