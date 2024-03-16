@@ -88,47 +88,6 @@ def polygon_trajectory(control_freq_hz, period=6, height=1.0, radius=1.0, n_side
         waypoints[i, :2] = waypoints[i, :2] + neg_wp_0
     return waypoints[0], init_rpys, waypoints
 
-# def polygon_trajectory(control_freq_hz, period=6, height=1.0, radius=1.0, n_sides=3):
-#     """
-#     Generates waypoints along a polygon path with n sides, starting at [0, 0, height].
-#
-#     Parameters:
-#     - control_freq_hz: Control frequency in Hz, determining the number of waypoints per second.
-#     - period: Total time to complete one cycle of the polygon path in seconds.
-#     - height: The height (Z coordinate) at which the polygon path should be generated.
-#     - radius: The circumradius of the polygon, which determines its size.
-#     - n_sides: The number of sides of the polygon.
-#
-#     Returns:
-#     - Tuple of initial position, initial orientation (roll, pitch, yaw), and an array of waypoints.
-#     """
-#     # Initial position and orientation
-#     init_xyzs = np.array([0, 0, height])  # Starts at [0, 0, height]
-#     init_rpys = np.array([0, 0, 0])
-#
-#     # Calculate the number of waypoints per side
-#     num_wp_per_side = control_freq_hz * period // n_sides
-#     waypoints = np.zeros((num_wp_per_side * n_sides + 1, 3))  # +1 for the initial waypoint
-#
-#     # Generate vertices of the polygon relative to the center [0, 0, height]
-#     vertices = np.array([
-#         [radius * np.cos(2 * np.pi * i / n_sides), radius * np.sin(2 * np.pi * i / n_sides), height]
-#         for i in range(n_sides)
-#     ])
-#
-#     # Set the first waypoint to the initial position
-#     waypoints[0] = init_xyzs
-#
-#     # Generate waypoints for each side of the polygon
-#     for i in range(n_sides):
-#         start_vertex = vertices[i]  # Start from the first vertex for the first side
-#         end_vertex = vertices[(i + 1) % n_sides]
-#         for j in range(1, num_wp_per_side + 1):  # Start from 1 to avoid duplicating the initial waypoint
-#             t = j / num_wp_per_side
-#             waypoint = (1 - t) * start_vertex + t * end_vertex
-#             waypoints[i * num_wp_per_side + j] = waypoint
-#
-#     return init_xyzs, init_rpys, waypoints
 
 class TrackAviary(BaseRLAviary):
     ################################################################################
@@ -176,15 +135,8 @@ class TrackAviary(BaseRLAviary):
 
         """
         self.EPISODE_LEN_SEC = episode_len
-        # self.traj_c_dist = D.Uniform(torch.tensor(-0.6), torch.tensor(0.6))
-        # self.traj_scale_dist = D.Uniform(torch.tensor([1.8, 1.8, 1.]), torch.tensor([3.2, 3.2, 1.5]))
-        # self.traj_w_dist = D.Uniform(torch.tensor(0.8), torch.tensor(1.1))
-        # self.traj_t0 = np.pi / 2  # t0 on a unit circle -- radians
 
         num_tracking_drones = 1
-        # self.traj_c = np.zeros((num_tracking_drones,))
-        # self.traj_scale = torch.zeros((num_tracking_drones, 3))
-        # self.traj_w = torch.ones((num_tracking_drones,))
 
         self.depth_type = depth_type
         self.distance_reward_scale = distance_reward_scale
@@ -346,15 +298,8 @@ class TrackAviary(BaseRLAviary):
     def reset(self,
               seed: int = None,
               options: dict = None):
-        # self.traj_c = self.traj_c_dist.sample()
-        # # self.traj_rot = euler_to_quaternion(self.traj_rpy_dist.sample())
-        # self.traj_scale = self.traj_scale_dist.sample()
-        # traj_w = self.traj_w_dist.sample()
-        # self.traj_w = torch.randn_like(traj_w).sign() * traj_w
-
         polygon_shapes = [0, 3, 4, 5, 6]
         self.env_idx = np.random.choice(polygon_shapes)
-        # self.env_idx = 3
         xyzs, rpys, waypoints = polygon_trajectory(self.CTRL_FREQ, n_sides=self.env_idx, radius=0.5)
 
         for agent in self.EXTERNAL_AGENTS:

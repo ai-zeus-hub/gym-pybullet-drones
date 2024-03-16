@@ -95,7 +95,11 @@ class BulletTrackCNN(BaseFeaturesExtractor):
          normalized_image (bool): Flag indicating whether input images are normalized.
      """
 
-    def __init__(self, observation_space: gym.Space, features_dim: int = 2, normalized_image: bool = False):
+    def __init__(self,
+                 observation_space: gym.Space,
+                 features_dim: int = 2,
+                 normalized_image: bool = False,
+                 intermediate_dims: int = 64):
         super().__init__(observation_space, features_dim)
         self.observation_space = observation_space
         self.input_size = observation_space.shape  # Extracting the input size from the observation space
@@ -135,7 +139,8 @@ class BulletTrackCNN(BaseFeaturesExtractor):
 
         # Replace the classifier of the MobileNetV3 Small to adapt to the task
         self.mobilenet_v3_small.classifier = nn.Sequential(
-            nn.Linear(last_conv_output_channels, features_dim)  # Adjust to the correct feature size
+            nn.Linear(last_conv_output_channels, intermediate_dims),
+            nn.Linear(intermediate_dims, features_dim)
         )
 
     def forward(self, x: th.Tensor) -> th.Tensor:
