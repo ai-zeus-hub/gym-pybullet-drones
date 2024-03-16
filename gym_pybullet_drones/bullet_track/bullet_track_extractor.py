@@ -85,6 +85,54 @@ class MobileNet(BaseFeaturesExtractor):
     # def forward(self, observations: th.Tensor) -> th.Tensor:
     #     return self.linear(self.cnn(observations))
 
+class BulletTrackCNN(BaseFeaturesExtractor):
+    """
+     A neural network for identifying the center point of a drone in an image, based on MobileNetV3 Small architecture.
+
+     Attributes:
+         observation_space (gym.Space): The space object representing the input dimensions.
+         features_dim (int): The dimensionality of the output layer, defaults to 2 for x and y coordinates.
+         normalized_image (bool): Flag indicating whether input images are normalized.
+     """
+
+    def __init__(self, observation_space: gym.Space, features_dim: int = 2, normalized_image: bool = False):
+        super().__init__(observation_space, features_dim)
+        self.observation_space = observation_space
+        self.input_size = observation_space.shape  # Extracting the input size from the observation space
+        self.normalized_image = normalized_image
+
+        # Load the pre-trained MobileNetV3 Small model
+        from torchvision.models import mobilenet_v3_small, MobileNet_V3_Small_Weights
+        self.mobilenet_v3_small = mobilenet_v3_small(pretrained=True)
+
+        # # Replace the classifier of the MobileNetV3 Small to adapt to the task
+        # num_features = self.mobilenet_v3_small.classifier[-1].in_features  # Extract the number of input features for the classifier
+        # self.mobilenet_v3_small.classifier = nn.Sequential(
+        #     nn.Linear(num_features, self.features_dim)  # Output layer for x and y coordinates
+        # )
+
+        # Identify the correct number of output features from the last convolutional layer
+        # This is usually the number of channels in the output of the last block before the classifier
+        last_conv_output_channels = self.mobilenet_v3_small.features[-1].out_channels
+
+        # Replace the classifier of the MobileNetV3 Small to adapt to the task
+        self.mobilenet_v3_small.classifier = nn.Sequential(
+            nn.Linear(last_conv_output_channels, features_dim)  # Adjust to the correct feature size
+        )
+
+    def forward(self, x: th.Tensor) -> th.Tensor:
+        """
+        Forward pass through the network.
+
+        Args:
+            x (torch.Tensor): The input tensor representing a batch of images.
+
+        Returns:
+            torch.Tensor: The output tensor representing the x and y coordinates of the drone's center point in each image.
+        """
+        return self.mobilenet_v3_small(x)
+
+
 class CustomCombinedExtractor(BaseFeaturesExtractor):
     def __init__(
         self,
@@ -100,7 +148,7 @@ class CustomCombinedExtractor(BaseFeaturesExtractor):
         total_concat_size = 0
         for key, subspace in observation_space.spaces.items():
             if is_image_space(subspace, normalized_image=normalized_image):
-                extractors[key] = NatureCNN(subspace, features_dim=cnn_output_dim, normalized_image=normalized_image)
+                extractors[key] = BulletTrackCNN(subspace, features_dim=cnn_output_dim, normalized_image=normalized_image)
                 total_concat_size += cnn_output_dim
                 # total_concat_size += extractors[key].output_shape[1]
             else:

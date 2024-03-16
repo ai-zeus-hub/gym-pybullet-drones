@@ -84,7 +84,7 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER,
     observation_type = DEFAULT_OBS
     policy_type = "MultiInputPolicy"
     run_description = "_".join([
-        f"PPO-{str(observation_type).split('.')[1]}-nature-cnn-ds-depth-mlp",
+        f"PPO-{str(observation_type).split('.')[1]}-moblie-net-v3s-depth-mlp",
         f"Action-{str(DEFAULT_ACT).split('.')[1]}",
         f"LR={MAX_LR}",
         f"fd={features_extractor_kwargs['cnn_output_dim']}"
