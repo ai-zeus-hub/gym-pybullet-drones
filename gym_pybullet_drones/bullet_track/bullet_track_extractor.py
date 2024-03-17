@@ -140,7 +140,9 @@ class BulletTrackCNN(BaseFeaturesExtractor):
         # Replace the classifier of the MobileNetV3 Small to adapt to the task
         self.mobilenet_v3_small.classifier = nn.Sequential(
             nn.Linear(last_conv_output_channels, intermediate_dims),
-            nn.Linear(intermediate_dims, features_dim)
+            nn.Tanh(),
+            nn.Linear(intermediate_dims, features_dim),
+            nn.Tanh(),
         )
 
     def forward(self, x: th.Tensor) -> th.Tensor:

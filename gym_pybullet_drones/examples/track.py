@@ -21,11 +21,11 @@ from gym_pybullet_drones.bullet_track.bullet_track_extractor import CustomCombin
 DEFAULT_DEPTH_TYPE = DepthType.IMAGE
 DEFAULT_GUI = True
 DEFAULT_RECORD_VIDEO = False
-DEFAULT_OUTPUT_FOLDER = 'results'
+DEFAULT_OUTPUT_FOLDER = Path('results')
 DEFAULT_COLAB = True
 
 DEFAULT_OBS = ObservationType.MULTI
-DEFAULT_ACT = ActionType.RPM # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
+DEFAULT_ACT = ActionType.RPM  # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
 DEFAULT_EPISODE_LEN = 8  # usually 8
 MAX_LR = 0.0005
 
@@ -84,7 +84,7 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER,
     observation_type = DEFAULT_OBS
     policy_type = "MultiInputPolicy"
     run_description = "_".join([
-        f"PPO-{str(observation_type).split('.')[1]}-moblie-net-v3s-depth-mlp",
+        f"PPO-{str(observation_type).split('.')[1]}-mobile-net-v3s-tanh-classifier",
         f"Action-{str(DEFAULT_ACT).split('.')[1]}",
         f"LR={MAX_LR}",
         f"fd={features_extractor_kwargs['cnn_output_dim']}"
@@ -92,7 +92,7 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER,
 
     model = PPO(policy_type,
                 train_env,
-                tensorboard_log=str(filename / 'tb'),
+                tensorboard_log=str(output_folder / 'tensorboard'),
                 verbose=1,
                 seed=10281991,
                 vf_coef=1.25,
@@ -103,7 +103,7 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER,
                 policy_kwargs=policy_kwargs)
 
     #### Target cumulative rewards (problem-dependent) ##########
-    target_reward = episode_len * 24 * 0.9  # 24 is ctrl frequency
+    target_reward = episode_len * eval_env.CTRL_FREQ * 0.9
     callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=target_reward,
                                                      verbose=1)
     eval_callback = EvalCallback(eval_env,
@@ -149,10 +149,10 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER,
                            record=record_video)
     test_env_nogui = TrackAviary(obs=DEFAULT_OBS, act=DEFAULT_ACT, episode_len=episode_len)
     logger = Logger(logging_freq_hz=int(test_env.CTRL_FREQ),
-                num_drones=1,
-                output_folder=output_folder,
-                colab=colab
-                )
+                    num_drones=1,
+                    output_folder=str(output_folder),
+                    colab=colab
+                    )
 
     mean_reward, std_reward = evaluate_policy(model,
                                               test_env_nogui,
@@ -189,7 +189,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Single agent reinforcement learning example script')
     parser.add_argument('--gui',                default=DEFAULT_GUI,           type=str2bool,      help='Whether to use PyBullet GUI (default: True)', metavar='')
     parser.add_argument('--record_video',       default=DEFAULT_RECORD_VIDEO,  type=str2bool,      help='Whether to record a video (default: False)', metavar='')
-    parser.add_argument('--output_folder',      default=DEFAULT_OUTPUT_FOLDER, type=str,           help='Folder where to save logs (default: "results")', metavar='')
+    parser.add_argument('--output_folder',      default=DEFAULT_OUTPUT_FOLDER, type=Path,          help='Folder where to save logs (default: "results")', metavar='')
     parser.add_argument('--colab',              default=DEFAULT_COLAB,         type=bool,          help='Whether example is being run by a notebook (default: "False")', metavar='')
     ARGS = parser.parse_args()
 
