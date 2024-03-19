@@ -1,13 +1,13 @@
 import gymnasium
 import numpy as np
 import torch
-import torch.distributions as D
-
+from pathlib import Path
 from gymnasium import spaces
+import pybullet as p
 
 from gym_pybullet_drones.agents.WaypointDroneAgent import WaypointDroneAgent
 from gym_pybullet_drones.envs.BaseRLAviary import BaseRLAviary
-from gym_pybullet_drones.utils.enums import DroneModel, Physics, ActionType, ObservationType, DepthType
+from gym_pybullet_drones.utils.enums import DroneModel, Physics, ActionType, ObservationType, DepthType, ImageType
 
 
 def scale_time(t, a: float = 1.0):
@@ -60,7 +60,6 @@ def polygon_trajectory(control_freq_hz, period=6, height=1.0, radius=1.0, n_side
     if n_sides == 0:
         return circle(control_freq_hz, radius=radius, height=height, period=period)
     # Initial position and orientation
-    init_xyzs = np.array([0, 0, height])
     init_rpys = np.array([0, 0, 0])
 
     # Calculate the number of waypoints per side
@@ -142,20 +141,24 @@ class TrackAviary(BaseRLAviary):
         self.distance_reward_scale = distance_reward_scale
         self.env_idx = 0
         self.max_distance = max_distance
+        self.desired_distance = 0.25
 
-        xyzs, rpys, waypoints = polygon_trajectory(ctrl_freq, n_sides=self.env_idx, radius=0.5)
+        xyz, rpy, waypoints = polygon_trajectory(ctrl_freq, n_sides=self.env_idx, radius=0.5)
 
-        tracked_drone = WaypointDroneAgent(initial_xyz=xyzs,
-                                           initial_rpy=rpys,
+        tracked_drone = WaypointDroneAgent(initial_xyz=xyz,
+                                           initial_rpy=rpy,
                                            pyb_freq=pyb_freq,
                                            ctrl_freq=ctrl_freq,
                                            waypoints=waypoints,
                                            episode_length_sec=episode_len)
 
+        init_yaw = rpy[2]
+        xyz_delta = np.array([np.cos(init_yaw), np.sin(init_yaw), 0]) * self.desired_distance
+        init_xyz = xyz - xyz_delta
         super().__init__(drone_model=drone_model,
                          num_drones=num_tracking_drones,
-                         initial_xyzs=np.array([[.25, .25, 1.]]),
-                         initial_rpys=np.array([[0., 0., 0.]]),
+                         initial_xyzs=np.expand_dims(init_xyz, axis=0),
+                         initial_rpys=np.expand_dims(rpy, axis=0),
                          physics=physics,
                          pyb_freq=pyb_freq,
                          ctrl_freq=ctrl_freq,
@@ -169,6 +172,38 @@ class TrackAviary(BaseRLAviary):
 
     ################################################################################
 
+    def is_target_in_fov(self, target_pos: np.ndarray) -> bool:
+        # Get the view matrix from the drone's current position and orientation
+        rot_mat = np.array(p.getMatrixFromQuaternion(self.quat[0, :])).reshape(3, 3)
+        target_dir = np.dot(rot_mat, np.array([1000, 0, 0]))
+        view_matrix = p.computeViewMatrix(cameraEyePosition=self.pos[0, :] + np.array([0, 0, self.L]),
+                                          cameraTargetPosition=self.pos[0, :] + target_dir,
+                                          cameraUpVector=[0, 0, 1])
+
+        # Convert the view matrix to a NumPy array and reshape it
+        view_matrix_np = np.array(view_matrix).reshape(4, 4).T  # Transpose to match PyBullet's row-major order
+
+        # Get the projection matrix
+        projection_matrix = p.computeProjectionMatrixFOV(fov=60.0, aspect=1.0, nearVal=self.L, farVal=1000.0)
+        projection_matrix_np = np.array(projection_matrix).reshape(4, 4).T  # Transpose for consistency
+
+        # Transform target position to homogeneous coordinates
+        target_pos_homogeneous = np.append(target_pos, 1.0)  # Append 1 for homogeneous coordinates
+
+        # Transform target position to camera coordinates
+        camera_coords = np.dot(view_matrix_np, target_pos_homogeneous)
+
+        # Project camera coordinates to 2D using the projection matrix
+        projected = np.dot(projection_matrix_np, camera_coords)
+
+        # Perform perspective division to get normalized device coordinates
+        ndc = projected[:-1] / projected[-1]
+
+        # Check if x and y in NDC are within [-1, 1], indicating the target is within the FOV
+        in_fov = np.all(ndc[:-1] >= -1) and np.all(ndc[:-1] <= 1)
+
+        return in_fov
+
     def _computeReward(self):
         """Computes the current reward value for the drone doing the tracking
 
@@ -177,23 +212,29 @@ class TrackAviary(BaseRLAviary):
         float
             The reward.
         """
-        total_dist, x_dist, y_dist, z_dist = self._distance_from_next_target()
+        target_pos, target_rpy = self._target_waypoint()
+        total_dist, x_dist, y_dist, z_dist = self._distance_from_next_target(target_pos)
         reward_pose = np.exp(-total_dist * self.distance_reward_scale)
 
         state = self._getDroneStateVector(0)
+        current_rpy = state[7:10]
+
+        target_fov_penalty = 0
+        # if not self.is_target_in_fov(target_pos):
+        #     target_fov_penalty = 1
 
         # spin = np.square(velocity[..., -1])
         vel_w = state[13:16]
         angular_velocity_penalty = 0  # 0.005 * np.sum(np.square(vel_w))
         z_penalty = 0  # 1./2 * np.exp(-z_dist * 0.8)
-        penalties = z_penalty + angular_velocity_penalty
+        penalties = z_penalty + angular_velocity_penalty + target_fov_penalty
 
         reward = reward_pose - penalties
         return reward
 
     ################################################################################
 
-    def _target_waypoint(self, distance_behind: float = 0.25) -> np.ndarray:
+    def _target_waypoint(self) -> tuple[np.ndarray, np.ndarray]:
         """
         Calculates a waypoint position directly behind the drone at a specified distance.
 
@@ -213,14 +254,15 @@ class TrackAviary(BaseRLAviary):
         # Calculate the change in position due to the yaw angle
         # Yaw rotation matrix about the Z-axis
         yaw = target_rpy[2]
-        delta_x = -distance_behind * np.sin(yaw)  # Change in x position
-        delta_y = distance_behind * np.cos(yaw)  # Change in y position
+
+        delta_x = -self.desired_distance * np.cos(yaw)  # Change in x position
+        delta_y = -self.desired_distance * np.sin(yaw)  # Change in y position
 
         # Calculate the new position behind the drone
         waypoint_position = target_position + np.array([delta_x, delta_y, 0])
-        return waypoint_position
+        return waypoint_position, target_rpy
 
-    def _distance_from_next_target(self) -> tuple[float, float, float, float]:
+    def _distance_from_next_target(self, target_pos: np.ndarray) -> tuple[float, float, float, float]:
         """Distance from tracking to tracked drone
         """
         # state = self._getDroneStateVector(0)
@@ -229,7 +271,6 @@ class TrackAviary(BaseRLAviary):
 
         state = self._getDroneStateVector(0)
         current_pos = state[0:3]
-        target_pos = self._target_waypoint()
 
         x_distance = np.abs(current_pos[0] - target_pos[0])
         y_distance = np.abs(current_pos[1] - target_pos[1])
@@ -250,7 +291,8 @@ class TrackAviary(BaseRLAviary):
 
         """
         state = self._getDroneStateVector(0)
-        total_dist, x_dist, y_dist, z_dist = self._distance_from_next_target()
+        target_pos, target_rpy = self._target_waypoint()
+        total_dist, x_dist, y_dist, z_dist = self._distance_from_next_target(target_pos)
         if ((total_dist > self.max_distance) or       # Truncate when the drone is too far away
             # (z_dist > .2) or
             (abs(state[7]) > .4) or
@@ -288,7 +330,8 @@ class TrackAviary(BaseRLAviary):
             Dummy value.
 
         """
-        total_distance, x_dist, y_dist, z_dist = self._distance_from_next_target()
+        target_pos, target_rpy = self._target_waypoint()
+        total_distance, x_dist, y_dist, z_dist = self._distance_from_next_target(target_pos)
         return {"answer": 42,
                 "total_distance": total_distance,
                 "x_dist": x_dist,
@@ -312,13 +355,16 @@ class TrackAviary(BaseRLAviary):
             if self.step_counter % self.IMG_CAPTURE_FREQ == 0:
                 # self.IMG_RES is (w, h), but getDroneImage returns (h, w)
                 self.rgb[0], self.dep[0], self.seg[0] = self._getDroneImages(0, segmentation=False)
-                # #### Printing observation to PNG frames example ############
-                # if self.RECORD:
-                #     self._exportImage(img_type=ImageType.RGB,
-                #                       img_input=self.rgb[i],
-                #                       path=self.ONBOARD_IMG_PATH + "drone_" + str(i),
-                #                       frame_num=int(self.step_counter / self.IMG_CAPTURE_FREQ)
-                #                       )
+                #### Printing observation to PNG frames example ############
+                save_dataset = False
+                if save_dataset:
+                    output_dir: Path = Path(self.OUTPUT_FOLDER) / "drone_0"
+                    output_dir.mkdir(exist_ok=True)
+                    self._exportImage(img_type=ImageType.RGB,
+                                      img_input=self.rgb[0],
+                                      path=str(output_dir),
+                                      frame_num=int(self.step_counter / self.IMG_CAPTURE_FREQ)
+                                      )
             img = self.rgb[0, :, :, 0:3].astype(np.uint8)  # strip off alpha channel
             if self.depth_type == DepthType.IMAGE:
                 expanded = np.expand_dims(self.dep[0], axis=-1)
@@ -445,12 +491,6 @@ class TrackAviary(BaseRLAviary):
         if len(dict_space) == 0:
             raise ValueError("Dict space should contain at least item")
         return dict_space
-
-    # def _compute_traj(self, steps: int):
-    #     t = self.step_counter + torch.arange(steps)  # * step_size (=1. default)
-    #     t = self.traj_t0 + scale_time(self.traj_w * t * self.PYB_TIMESTEP)
-    #     target_pos = lemniscate(t, self.traj_c)
-    #     return self.INIT_XYZS[0] + target_pos
 
     def _addObstacles(self):
         pass

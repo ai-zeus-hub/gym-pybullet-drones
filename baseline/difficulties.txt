@@ -21,3 +21,6 @@ The drone struggles to train when the target is at high velocity.
 Normalization was an issue, and tuning the min-max clipping, particular for angular velocity.
 
 Removing the relative position is proving to be very difficult.
+
+Mixed up yaw being across the y-axis when it is actually across the x-axis. This made me mix up cos/sin, creating conflicting
+positions for CNN.
