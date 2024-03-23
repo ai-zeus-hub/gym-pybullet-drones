@@ -173,7 +173,7 @@ class CustomCombinedExtractor(BaseFeaturesExtractor):
         total_concat_size = 0
         for key, subspace in observation_space.spaces.items():
             if is_image_space(subspace, normalized_image=normalized_image):
-                extractors[key] = BulletTrackCNN(subspace, features_dim=cnn_output_dim, normalized_image=normalized_image)
+                extractors[key] = NatureCNN(subspace, features_dim=cnn_output_dim, normalized_image=normalized_image)
                 total_concat_size += cnn_output_dim
                 # total_concat_size += extractors[key].output_shape[1]
             else:

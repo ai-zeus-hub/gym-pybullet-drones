@@ -5,6 +5,7 @@ from datetime import datetime
 import xml.etree.ElementTree as etxml
 import pkg_resources
 from PIL import Image
+from pathlib import Path
 import numpy as np
 import pybullet as p
 import pybullet_data
@@ -135,7 +136,7 @@ class BaseAviary(gym.Env):
             os.makedirs(os.path.dirname(self.ONBOARD_IMG_PATH), exist_ok=True)
         self.VISION_ATTR = vision_attributes
         if self.VISION_ATTR:
-            self.IMG_RES = np.array([64, 48])
+            self.IMG_RES = np.array([64, 64])
             self.IMG_FRAME_PER_SEC = 24
             self.IMG_CAPTURE_FREQ = int(self.PYB_FREQ/self.IMG_FRAME_PER_SEC)
             self.rgb = np.zeros(((self.NUM_DRONES, self.IMG_RES[1], self.IMG_RES[0], 4)))
@@ -196,6 +197,7 @@ class BaseAviary(gym.Env):
 
         for external_agent in self.EXTERNAL_AGENTS:
             external_agent.CLIENT = self.CLIENT
+        self.reset_counter = 0
         #### Set initial poses #####################################
         if initial_xyzs is None:
             self.INIT_XYZS = np.vstack([np.array([x*4*self.L for x in range(self.NUM_DRONES)]), \
@@ -247,7 +249,7 @@ class BaseAviary(gym.Env):
         """
 
         # TODO : initialize random number generator with seed
-
+        self.reset_counter += 1
         p.resetSimulation(physicsClientId=self.CLIENT)
         #### Housekeeping ##########################################
         self._housekeeping()
@@ -669,8 +671,9 @@ class BaseAviary(gym.Env):
             Frame number to append to the PNG's filename.
 
         """
+        img_name = Path(path) / f"reset_{self.reset_counter}_frame_{frame_num}_step_{self.step_counter}.png"
         if img_type == ImageType.RGB:
-            (Image.fromarray(img_input.astype('uint8'), 'RGBA')).save(os.path.join(path,"frame_"+str(frame_num)+".png"))
+            (Image.fromarray(img_input.astype('uint8'), 'RGBA')).save(img_name)
         elif img_type == ImageType.DEP:
             temp = ((img_input-np.min(img_input)) * 255 / (np.max(img_input)-np.min(img_input))).astype('uint8')
         elif img_type == ImageType.SEG:
@@ -681,7 +684,7 @@ class BaseAviary(gym.Env):
             print("[ERROR] in BaseAviary._exportImage(), unknown ImageType")
             exit()
         if img_type != ImageType.RGB:
-            (Image.fromarray(temp)).save(os.path.join(path,"frame_"+str(frame_num)+".png"))
+            (Image.fromarray(temp)).save(img_name)
 
     ################################################################################
 

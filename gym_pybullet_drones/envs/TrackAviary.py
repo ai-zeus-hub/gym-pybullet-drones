@@ -4,6 +4,7 @@ import torch
 from pathlib import Path
 from gymnasium import spaces
 import pybullet as p
+import imageio
 
 from gym_pybullet_drones.agents.WaypointDroneAgent import WaypointDroneAgent
 from gym_pybullet_drones.envs.BaseRLAviary import BaseRLAviary
@@ -145,6 +146,7 @@ class TrackAviary(BaseRLAviary):
 
         xyz, rpy, waypoints = polygon_trajectory(ctrl_freq, n_sides=self.env_idx, radius=0.5)
 
+
         tracked_drone = WaypointDroneAgent(initial_xyz=xyz,
                                            initial_rpy=rpy,
                                            pyb_freq=pyb_freq,
@@ -169,6 +171,13 @@ class TrackAviary(BaseRLAviary):
                          external_agents=[tracked_drone],
                          action_buffer_size=1,
                          )
+        self.img_counter = 0
+        self.IMG_RES = np.array([64, 64])  # todo: ajr - remove
+        self.IMG_FRAME_PER_SEC = 24
+        self.IMG_CAPTURE_FREQ = int(self.PYB_FREQ / self.IMG_FRAME_PER_SEC)
+        self.rgb = np.zeros(((self.NUM_DRONES, self.IMG_RES[1], self.IMG_RES[0], 4)))
+        self.dep = np.ones(((self.NUM_DRONES, self.IMG_RES[1], self.IMG_RES[0])))
+        self.seg = np.zeros(((self.NUM_DRONES, self.IMG_RES[1], self.IMG_RES[0])))
 
     ################################################################################
 
@@ -343,20 +352,42 @@ class TrackAviary(BaseRLAviary):
               options: dict = None):
         polygon_shapes = [0, 3, 4, 5, 6]
         self.env_idx = np.random.choice(polygon_shapes)
+        self.img_counter = 0
         xyzs, rpys, waypoints = polygon_trajectory(self.CTRL_FREQ, n_sides=self.env_idx, radius=0.5)
 
         for agent in self.EXTERNAL_AGENTS:
             agent.reset(xyzs, rpys, waypoints)
         return super().reset(seed, options)
 
+    def _exportRGBD(self,
+                     path: str,
+                     frame_num: int=0):
+        img_name = Path(path) / f"reset_{self.reset_counter}_frame_{frame_num}_step_{self.step_counter}.png"
+
+        img = self.rgb[0, :, :, 0:3].astype(np.uint8)  # strip off alpha channel
+        if self.depth_type == DepthType.IMAGE:
+            expanded = np.expand_dims(self.dep[0], axis=-1)
+            expanded = (expanded * 255).astype(np.uint8)
+            img = np.concatenate((img, expanded), axis=2)
+        imageio.imwrite(img_name, img)
+
     def _computeObs(self):
+        save_dataset = True
+        img_cap_freq = 5
+        if save_dataset and (self.img_counter % img_cap_freq == 0):
+            self.rgb[0], self.dep[0], self.seg[0] = self._getDroneImages(0, segmentation=False)
+            output_dir: Path = Path(self.OUTPUT_FOLDER) / "drone_0_rgbd"
+            output_dir.mkdir(exist_ok=True)
+            self._exportRGBD(path=str(output_dir),
+                             frame_num=int(self.step_counter / self.IMG_CAPTURE_FREQ))
+        self.img_counter += 1
         observation = {}
         if self.OBS_TYPE == ObservationType.RGB or self.OBS_TYPE == ObservationType.MULTI:
+            # self.IMG_RES is (w, h), but getDroneImage returns (h, w)
+            self.rgb[0], self.dep[0], self.seg[0] = self._getDroneImages(0, segmentation=False)
             if self.step_counter % self.IMG_CAPTURE_FREQ == 0:
-                # self.IMG_RES is (w, h), but getDroneImage returns (h, w)
-                self.rgb[0], self.dep[0], self.seg[0] = self._getDroneImages(0, segmentation=False)
                 #### Printing observation to PNG frames example ############
-                save_dataset = False
+                save_dataset = True
                 if save_dataset:
                     output_dir: Path = Path(self.OUTPUT_FOLDER) / "drone_0"
                     output_dir.mkdir(exist_ok=True)
@@ -378,7 +409,7 @@ class TrackAviary(BaseRLAviary):
                 print("Depth ignored")
             observation["img"] = img
         if self.OBS_TYPE == ObservationType.KIN or self.OBS_TYPE == ObservationType.MULTI:
-            base_kin_obs_size = 9
+            base_kin_obs_size = 12
             obs = np.zeros((self.NUM_DRONES, base_kin_obs_size))
             for i in range(self.NUM_DRONES):
                 state = self._getDroneStateVector(i)
@@ -415,15 +446,15 @@ class TrackAviary(BaseRLAviary):
                         print(f"***WARNING: max_w_vel too low! Saw {w_vel=} and {max_w_vel=}")
 
                 # relative position
-                # pos = state[0:3]
-                # rpos = self._target_waypoint() - pos
-                # # distance = np.linalg.norm(rpos, axis=-1)
-                # # norm_rpos = rpos / (np.linalg.norm(rpos, axis=-1) + 1e-6)
-                # norm_rpos = np.clip(rpos / self.max_distance, np.array([-1, -1, -1]), np.array([1, 1, 1]))
+                pos = state[0:3]
+                rpos = self._target_waypoint()[0] - pos
+                # distance = np.linalg.norm(rpos, axis=-1)
+                # norm_rpos = rpos / (np.linalg.norm(rpos, axis=-1) + 1e-6)
+                norm_rpos = np.clip(rpos / self.max_distance, np.array([-1, -1, -1]), np.array([1, 1, 1]))
 
 
-                obs[i, :] = np.hstack([norm_rpy, norm_vel, norm_w_vel]).reshape(base_kin_obs_size,)
-                # obs[i, :] = np.hstack([norm_rpy, norm_vel, norm_w_vel, norm_rpos.flatten()]).reshape(base_kin_obs_size,)
+                # obs[i, :] = np.hstack([norm_rpy, norm_vel, norm_w_vel]).reshape(base_kin_obs_size,)
+                obs[i, :] = np.hstack([norm_rpy, norm_vel, norm_w_vel, norm_rpos.flatten()]).reshape(base_kin_obs_size,)
                 # obs[i, :] = np.hstack([rpy, vel, w_vel, rpos.flatten()]).reshape(base_kin_obs_size, )
                 # obs[i, :] = np.hstack([norm_rpy, norm_vel, norm_w_vel, rpos.flatten()]).reshape(base_kin_obs_size, )
             obs = np.array([obs[i, :] for i in range(self.NUM_DRONES)]).astype('float32')
@@ -462,9 +493,9 @@ class TrackAviary(BaseRLAviary):
             norm_lo = -1
             norm_hi = +1
             obs_lower_bound = np.array([[norm_lo, norm_lo, norm_lo, norm_lo, norm_lo, norm_lo, norm_lo, norm_lo,
-                                         norm_lo] for _ in range(self.NUM_DRONES)])
+                                         norm_lo, norm_lo, norm_lo, norm_lo] for _ in range(self.NUM_DRONES)])
             obs_upper_bound = np.array([[norm_hi, norm_hi, norm_hi, norm_hi, norm_hi, norm_hi, norm_hi, norm_hi,
-                                         norm_hi] for _ in range(self.NUM_DRONES)])
+                                         norm_hi, norm_hi, norm_hi, norm_hi] for _ in range(self.NUM_DRONES)])
 
             # for _ in range(self.future_traj_steps):
             #     obs_lower_bound = np.hstack([obs_lower_bound, np.array([[lo, lo, lo]])])

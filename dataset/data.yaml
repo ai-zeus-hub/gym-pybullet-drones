@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 1
+names: ['drone']
+
+roboflow:
+  workspace: pattern-recognition-4kp8w
+  project: bullet-track
+  version: 2
+  license: MIT
+  url: https://universe.roboflow.com/pattern-recognition-4kp8w/bullet-track/dataset/2
