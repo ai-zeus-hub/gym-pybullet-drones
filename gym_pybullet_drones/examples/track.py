@@ -24,7 +24,7 @@ DEFAULT_RECORD_VIDEO = False
 DEFAULT_OUTPUT_FOLDER = Path('results')
 DEFAULT_COLAB = True
 
-DEFAULT_OBS = ObservationType.KIN
+DEFAULT_OBS = ObservationType.MULTI
 DEFAULT_ACT = ActionType.RPM  # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
 DEFAULT_EPISODE_LEN = 8  # usually 8
 MAX_LR = 0.0005

@@ -24,6 +24,7 @@ sb3-contrib = "^2.2.1"
 torchvision = "^0.17.1"
 imageio = "^2.34.0"
 ultralytics = "^8.1.31"
+tensorboard = "^2.16.2"
 
 [tool.poetry.dev-dependencies]
 
