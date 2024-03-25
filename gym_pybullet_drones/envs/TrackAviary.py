@@ -105,6 +105,7 @@ class TrackAviary(BaseRLAviary):
                  distance_reward_scale: float = 1.2,
                  depth_type: DepthType = DepthType.IMAGE,
                  max_distance: float = 2.,
+                 include_rpos_in_obs: bool = True
                  ):
         """Initialization of a single agent RL environment.
 
@@ -134,6 +135,7 @@ class TrackAviary(BaseRLAviary):
             The type of action space (1 or 3D; RPMS, thrust and torques, or waypoint with PID control)
 
         """
+        self.include_rpos_in_obs = include_rpos_in_obs
         self.EPISODE_LEN_SEC = episode_len
 
         num_tracking_drones = 1
@@ -408,7 +410,7 @@ class TrackAviary(BaseRLAviary):
                 print("Depth ignored")
             observation["img"] = img
         if self.OBS_TYPE == ObservationType.KIN or self.OBS_TYPE == ObservationType.MULTI:
-            base_kin_obs_size = 9
+            base_kin_obs_size = 12 if self.include_rpos_in_obs else 9
             obs = np.zeros((self.NUM_DRONES, base_kin_obs_size))
             for i in range(self.NUM_DRONES):
                 state = self._getDroneStateVector(i)
@@ -436,12 +438,13 @@ class TrackAviary(BaseRLAviary):
                         print(f"***WARNING: max_w_vel too low! Saw {w_vel=} and {max_w_vel=}")
 
                 # relative position
-                # pos = state[0:3]
-                # rpos = self._target_waypoint()[0] - pos
-                # norm_rpos = np.clip(rpos / self.max_distance, np.array([-1, -1, -1]), np.array([1, 1, 1]))
-
-                obs[i, :] = np.hstack([norm_rpy, norm_vel, norm_w_vel]).reshape(base_kin_obs_size,)
-                # obs[i, :] = np.hstack([norm_rpy, norm_vel, norm_w_vel, norm_rpos.flatten()]).reshape(base_kin_obs_size,)
+                if self.include_rpos_in_obs:
+                    pos = state[0:3]
+                    rpos = self._target_waypoint()[0] - pos
+                    norm_rpos = np.clip(rpos / self.max_distance, np.array([-1, -1, -1]), np.array([1, 1, 1]))
+                    obs[i, :] = np.hstack([norm_rpy, norm_vel, norm_w_vel, norm_rpos.flatten()]).reshape(base_kin_obs_size,)
+                else:
+                    obs[i, :] = np.hstack([norm_rpy, norm_vel, norm_w_vel]).reshape(base_kin_obs_size,)
             obs = np.array([obs[i, :] for i in range(self.NUM_DRONES)]).astype('float32')
 
             #### Add action buffer to observation #######################
@@ -477,10 +480,16 @@ class TrackAviary(BaseRLAviary):
             # without rpos
             norm_lo = -1
             norm_hi = +1
-            obs_lower_bound = np.array([[norm_lo, norm_lo, norm_lo, norm_lo, norm_lo, norm_lo, norm_lo, norm_lo,
-                                         norm_lo] for _ in range(self.NUM_DRONES)])
-            obs_upper_bound = np.array([[norm_hi, norm_hi, norm_hi, norm_hi, norm_hi, norm_hi, norm_hi, norm_hi,
-                                         norm_hi] for _ in range(self.NUM_DRONES)])
+            if self.include_rpos_in_obs:
+                obs_lower_bound = np.array([[norm_lo, norm_lo, norm_lo, norm_lo, norm_lo, norm_lo, norm_lo, norm_lo,
+                                             norm_lo, norm_lo, norm_lo, norm_lo] for _ in range(self.NUM_DRONES)])
+                obs_upper_bound = np.array([[norm_hi, norm_hi, norm_hi, norm_hi, norm_hi, norm_hi, norm_hi, norm_hi,
+                                             norm_hi, norm_hi, norm_hi, norm_hi] for _ in range(self.NUM_DRONES)])
+            else:
+                obs_lower_bound = np.array([[norm_lo, norm_lo, norm_lo, norm_lo, norm_lo, norm_lo, norm_lo, norm_lo,
+                                            norm_lo] for _ in range(self.NUM_DRONES)])
+                obs_upper_bound = np.array([[norm_hi, norm_hi, norm_hi, norm_hi, norm_hi, norm_hi, norm_hi, norm_hi,
+                                            norm_hi] for _ in range(self.NUM_DRONES)])
 
             # for _ in range(self.future_traj_steps):
             #     obs_lower_bound = np.hstack([obs_lower_bound, np.array([[lo, lo, lo]])])
