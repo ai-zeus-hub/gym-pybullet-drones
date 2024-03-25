@@ -372,7 +372,7 @@ class TrackAviary(BaseRLAviary):
         imageio.imwrite(img_name, img)
 
     def _computeObs(self):
-        save_dataset = True
+        save_dataset = False
         img_cap_freq = 5
         if save_dataset and (self.img_counter % img_cap_freq == 0):
             self.rgb[0], self.dep[0], self.seg[0] = self._getDroneImages(0, segmentation=False)
@@ -385,17 +385,16 @@ class TrackAviary(BaseRLAviary):
         if self.OBS_TYPE == ObservationType.RGB or self.OBS_TYPE == ObservationType.MULTI:
             # self.IMG_RES is (w, h), but getDroneImage returns (h, w)
             self.rgb[0], self.dep[0], self.seg[0] = self._getDroneImages(0, segmentation=False)
-            if self.step_counter % self.IMG_CAPTURE_FREQ == 0:
-                #### Printing observation to PNG frames example ############
-                save_dataset = True
-                if save_dataset:
-                    output_dir: Path = Path(self.OUTPUT_FOLDER) / "drone_0"
-                    output_dir.mkdir(exist_ok=True)
-                    self._exportImage(img_type=ImageType.RGB,
-                                      img_input=self.rgb[0],
-                                      path=str(output_dir),
-                                      frame_num=int(self.step_counter / self.IMG_CAPTURE_FREQ)
-                                      )
+            #### Printing observation to PNG frames example ############
+            save_dataset = False
+            if save_dataset:
+                output_dir: Path = Path(self.OUTPUT_FOLDER) / "drone_0"
+                output_dir.mkdir(exist_ok=True)
+                self._exportImage(img_type=ImageType.RGB,
+                                    img_input=self.rgb[0],
+                                    path=str(output_dir),
+                                    frame_num=int(self.step_counter / self.IMG_CAPTURE_FREQ)
+                                    )
             img = self.rgb[0, :, :, 0:3].astype(np.uint8)  # strip off alpha channel
             if self.depth_type == DepthType.IMAGE:
                 expanded = np.expand_dims(self.dep[0], axis=-1)

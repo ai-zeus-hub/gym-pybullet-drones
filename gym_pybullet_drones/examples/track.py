@@ -55,7 +55,8 @@ def constant_lr_schedule(remaining_percent: float) -> float:
 def run(output_folder=DEFAULT_OUTPUT_FOLDER,
         gui=DEFAULT_GUI, plot=True, colab=DEFAULT_COLAB, record_video=DEFAULT_RECORD_VIDEO,
         episode_len=DEFAULT_EPISODE_LEN):
-    filename = Path(output_folder) / 'save-latest'
+    description = "yolov8n-baseline-w-nrpos"
+    filename = Path(output_folder) / f'save-latest-{description}'
     if not filename.exists():
         filename.mkdir(parents=True)
 
@@ -84,10 +85,9 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER,
     observation_type = DEFAULT_OBS
     policy_type = "MultiInputPolicy"
     run_description = "_".join([
-        f"PPO-{str(observation_type).split('.')[1]}-mobile-net-v3s-tanh-classifier",
+        f"PPO-{str(observation_type).split('.')[1]}-{description}",
         f"Action-{str(DEFAULT_ACT).split('.')[1]}",
-        f"LR={MAX_LR}",
-        f"fd={features_extractor_kwargs['cnn_output_dim']}"
+        f"LR={MAX_LR}"
     ])
 
     model = PPO(policy_type,

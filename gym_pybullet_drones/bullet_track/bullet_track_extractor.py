@@ -20,11 +20,11 @@ def result_to_output(results: list[Results], depths: th.Tensor) -> th.Tensor:
     # [x1, y1, x2, y2, confidence, class_id] and it's a list of tensors (one per image),
     # we'll focus on the first image's detections for simplicity. Adjust as necessary.
 
-    outputs = th.zeros((len(results), 3))
+    outputs = th.zeros((len(results), 3), device=depths.device)
     for result_index, result in enumerate(results):
         if len(result.boxes) == 0:
             # Return a tensor with zeros if no detections are found
-            outputs[result_index] = th.tensor([[0.0, 0.0, 0.0]])
+            outputs[result_index] = th.tensor([0.0, 0.0, 0.0])
             continue
 
         best_box_index = 0
