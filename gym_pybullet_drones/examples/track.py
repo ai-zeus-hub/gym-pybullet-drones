@@ -20,7 +20,7 @@ from gym_pybullet_drones.bullet_track.bullet_track_extractor import CustomCombin
 
 DEFAULT_DEPTH_TYPE = DepthType.IMAGE
 DEFAULT_GUI = True
-DEFAULT_RECORD_VIDEO = False
+DEFAULT_RECORD_VIDEO = True
 DEFAULT_OUTPUT_FOLDER = Path('results')
 DEFAULT_COLAB = True
 
@@ -55,7 +55,7 @@ def constant_lr_schedule(remaining_percent: float) -> float:
 def run(output_folder=DEFAULT_OUTPUT_FOLDER,
         gui=DEFAULT_GUI, plot=True, colab=DEFAULT_COLAB, record_video=DEFAULT_RECORD_VIDEO,
         episode_len=DEFAULT_EPISODE_LEN):
-    description = "yolov8n-baseline-w-nrpos"
+    description = "yolov8n-baseline-no-nrpos-normalized"
     filename = Path(output_folder) / f'save-latest-{description}'
     if not filename.exists():
         filename.mkdir(parents=True)
@@ -176,7 +176,6 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER,
             distance=info["total_distance"],
             )
         test_env.render()
-        print(terminated)
         sync(i, start, test_env.CTRL_TIMESTEP)
         if terminated:
             obs, info = test_env.reset(seed=42, options={})

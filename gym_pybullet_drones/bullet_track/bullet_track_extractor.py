@@ -15,11 +15,21 @@ from stable_baselines3.common.preprocessing import is_image_space, get_flattened
 from stable_baselines3.common.type_aliases import TensorDict
 
 
-def result_to_output(results: list[Results], depths: th.Tensor) -> th.Tensor:
-    # Assuming 'result.xyxy' is the attribute that contains detections in the format
-    # [x1, y1, x2, y2, confidence, class_id] and it's a list of tensors (one per image),
-    # we'll focus on the first image's detections for simplicity. Adjust as necessary.
+def scale_point(point_0_1):
+    return (point_0_1 * 2) - 1
 
+
+def normalize_depth(depth: float, max_distance: float = 2.) -> float:
+    return depth / max_distance
+
+    
+def get_depth(xywh: th.Tensor, depth: th.Tensor) -> float:
+    as_int = xywh.int()
+    point = depth[as_int[0], as_int[1]].item()
+    return normalize_depth(point)
+
+
+def result_to_output(results: list[Results], depths: th.Tensor) -> th.Tensor:
     outputs = th.zeros((len(results), 3), device=depths.device)
     for result_index, result in enumerate(results):
         if len(result.boxes) == 0:
@@ -34,13 +44,13 @@ def result_to_output(results: list[Results], depths: th.Tensor) -> th.Tensor:
                 best_box_index = box_index
 
         best_box_xywh = result.boxes.xywh[best_box_index]
-
+        best_box_xywhn = result.boxes.xywhn[best_box_index]
         x: float = best_box_xywh[0]
         y: float = best_box_xywh[1]
-        z: float = depths[result_index, int(x), int(y)].item()
-        outputs[result_index][0] = x
-        outputs[result_index][1] = y
-        outputs[result_index][2] = z
+        z: float = get_depth(best_box_xywh, depths[result_index])
+        outputs[result_index][0] = scale_point(best_box_xywhn[0])
+        outputs[result_index][1] = scale_point(best_box_xywhn[1])
+        outputs[result_index][2] = scale_point(z)
     return outputs
 
 
