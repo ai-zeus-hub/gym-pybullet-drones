@@ -24,7 +24,7 @@ DEFAULT_RECORD_VIDEO = True
 DEFAULT_OUTPUT_FOLDER = Path('results')
 DEFAULT_COLAB = True
 
-DEFAULT_OBS = ObservationType.KIN
+DEFAULT_OBS = ObservationType.MULTI
 DEFAULT_ACT = ActionType.RPM  # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
 DEFAULT_EPISODE_LEN = 8  # usually 8
 MAX_LR = 0.0005
@@ -55,7 +55,7 @@ def constant_lr_schedule(remaining_percent: float) -> float:
 def run(output_folder=DEFAULT_OUTPUT_FOLDER,
         gui=DEFAULT_GUI, plot=True, colab=DEFAULT_COLAB, record_video=DEFAULT_RECORD_VIDEO,
         episode_len=DEFAULT_EPISODE_LEN):
-    description = "baseline-with-nrpos"
+    description = "yolov8s-keep-alive-reward"
     # description = "yolov8n-baseline-with-nrpos-normalized"
     filename = Path(output_folder) / f'save-latest-{description}'
     if not filename.exists():

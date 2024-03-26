@@ -90,8 +90,6 @@ def polygon_trajectory(control_freq_hz, period=6, height=1.0, radius=1.0, n_side
 
 
 class TrackAviary(BaseRLAviary):
-    ################################################################################
-
     def __init__(self,
                  drone_model: DroneModel = DroneModel.CF2X,
                  physics: Physics = Physics.PYB,
@@ -105,7 +103,7 @@ class TrackAviary(BaseRLAviary):
                  distance_reward_scale: float = 1.2,
                  depth_type: DepthType = DepthType.IMAGE,
                  max_distance: float = 2.,
-                 include_rpos_in_obs: bool = True
+                 include_rpos_in_obs: bool = False
                  ):
         """Initialization of a single agent RL environment.
 
@@ -240,7 +238,11 @@ class TrackAviary(BaseRLAviary):
         z_penalty = 0  # 1./2 * np.exp(-z_dist * 0.8)
         penalties = z_penalty + angular_velocity_penalty + target_fov_penalty
 
-        reward = reward_pose - penalties
+        max_steps = self.EPISODE_LEN_SEC * self.CTRL_FREQ
+        step_reward = 1. / max_steps
+        keep_alive = step_reward * self.step_counter
+
+        reward = min(1, 0.9 * reward_pose + 0.1 * keep_alive) - penalties
         return reward
 
     ################################################################################
