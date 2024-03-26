@@ -34,7 +34,7 @@ def result_to_output(results: list[Results], depths: th.Tensor) -> th.Tensor:
     for result_index, result in enumerate(results):
         if len(result.boxes) == 0:
             # Return a tensor with zeros if no detections are found
-            outputs[result_index] = th.tensor([0.0, 0.0, 0.0])
+            outputs[result_index] = th.tensor([-1.0, -1.0, -1.0])
             continue
 
         best_box_index = 0

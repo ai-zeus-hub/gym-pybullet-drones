@@ -55,7 +55,7 @@ def constant_lr_schedule(remaining_percent: float) -> float:
 def run(output_folder=DEFAULT_OUTPUT_FOLDER,
         gui=DEFAULT_GUI, plot=True, colab=DEFAULT_COLAB, record_video=DEFAULT_RECORD_VIDEO,
         episode_len=DEFAULT_EPISODE_LEN):
-    description = "yolov8s-keep-alive-reward"
+    description = "yolov8s-neg-1-placeholder"
     # description = "yolov8n-baseline-with-nrpos-normalized"
     filename = Path(output_folder) / f'save-latest-{description}'
     if not filename.exists():

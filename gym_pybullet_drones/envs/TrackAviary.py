@@ -242,7 +242,8 @@ class TrackAviary(BaseRLAviary):
         step_reward = 1. / max_steps
         keep_alive = step_reward * self.step_counter
 
-        reward = min(1, 0.9 * reward_pose + 0.1 * keep_alive) - penalties
+        # reward = min(1, 0.9 * reward_pose + 0.1 * keep_alive) - penalties
+        reward = reward_pose - penalties
         return reward
 
     ################################################################################
