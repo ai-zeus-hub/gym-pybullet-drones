@@ -73,8 +73,9 @@ model = None
 def isolated_forward(x):
     global model
     if model is None:
-        model = UntrainableYOLO("bullet-track-yolov8-drone-detector-single-cls/train/weights/best.pt")
-    return model.predict(x, imgsz=64, verbose=False)
+        model = UntrainableYOLO("bullet-track-yolov8-s-drone-detector-single-cls/train/weights/best.pt")
+    bgr_tensor = x[:, [2, 1, 0], :, :]
+    return model.predict(bgr_tensor, conf=0.35, imgsz=64, verbose=False)
 
 
 class BulletTrackCNN(BaseFeaturesExtractor):
@@ -83,7 +84,7 @@ class BulletTrackCNN(BaseFeaturesExtractor):
                  features_dim: int = 3,
                  normalized_image: bool = False,
                  pretrained_weights: Path = Path.cwd() /
-                                            "bullet-track-yolov8-drone-detector-single-cls" /
+                                            "bullet-track-yolov8-s-drone-detector-single-cls" /
                                             "train" /
                                             "weights" /
                                             "best.pt"):
