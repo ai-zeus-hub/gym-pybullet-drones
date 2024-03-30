@@ -27,7 +27,7 @@ DEFAULT_COLAB = True
 DEFAULT_OBS = ObservationType.MULTI
 DEFAULT_ACT = ActionType.RPM  # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
 DEFAULT_EPISODE_LEN = 8  # usually 8
-MAX_LR = 0.0005
+MAX_LR = 0.0006
 
 
 def piecewise_lr_schedule(remaining_percent: float) -> float:  # designed for 400k
@@ -55,7 +55,7 @@ def constant_lr_schedule(remaining_percent: float) -> float:
 def run(output_folder=DEFAULT_OUTPUT_FOLDER,
         gui=DEFAULT_GUI, plot=True, colab=DEFAULT_COLAB, record_video=DEFAULT_RECORD_VIDEO,
         episode_len=DEFAULT_EPISODE_LEN):
-    description = "yolov8s-neg-1-placeholder"
+    description = "yolov8s-ph-000-4-mlp"
     # description = "yolov8n-baseline-with-nrpos-normalized"
     filename = Path(output_folder) / f'save-latest-{description}'
     if not filename.exists():
@@ -76,7 +76,7 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER,
     print('[INFO] Observation space:', train_env.observation_space)
 
     ### Train the model #######################################
-    net_arch = [256, 256, 256]
+    net_arch = [512, 256, 256, 128]
     features_extractor_kwargs = dict(cnn_output_dim=3)  # NatureCNN
     policy_kwargs = dict(net_arch=net_arch,
                          share_features_extractor=True,
