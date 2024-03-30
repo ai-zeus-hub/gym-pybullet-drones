@@ -17,6 +17,7 @@ from gym_pybullet_drones.utils.utils import sync, str2bool
 from gym_pybullet_drones.utils.enums import ObservationType, ActionType, DepthType
 
 from gym_pybullet_drones.bullet_track.bullet_track_extractor import CustomCombinedExtractor
+from gym_pybullet_drones.bullet_track.bullet_track_policy import BulletTrackPolicy
 
 DEFAULT_DEPTH_TYPE = DepthType.IMAGE
 DEFAULT_GUI = True
@@ -84,14 +85,14 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER,
                          features_extractor_kwargs=features_extractor_kwargs)
 
     observation_type = DEFAULT_OBS
-    policy_type = "MultiInputPolicy"
+    # policy_type = "MultiInputPolicy"
     run_description = "_".join([
         f"PPO-{str(observation_type).split('.')[1]}-{description}",
         f"Action-{str(DEFAULT_ACT).split('.')[1]}",
         f"LR={MAX_LR}"
     ])
 
-    model = PPO(policy_type,
+    model = PPO(BulletTrackPolicy,
                 train_env,
                 tensorboard_log=str(output_folder / 'tensorboard'),
                 verbose=1,
