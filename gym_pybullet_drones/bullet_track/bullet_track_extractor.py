@@ -5,8 +5,11 @@ from ultralytics.engine.results import Results
 
 import torch as th
 from torch import nn
+from torch.nn import TransformerEncoder, TransformerEncoderLayer
+
 from gymnasium import spaces
 import gymnasium as gym
+
 from typing import Dict
 
 from pathlib import Path
@@ -99,7 +102,7 @@ class BulletTrackCNN(BaseFeaturesExtractor):
         depths = x[:, 3, :, :]
         with th.no_grad():
             # result = self.model.predict(images, imgsz=self.input_size[1:])
-            result = isolated_forward(images)
+            result = isolated_forward(images)  # todo: ajr -- ok? , device=0 -- verify using cuda:0 later
         return result_to_output(result, depths)
 
 
@@ -137,6 +140,52 @@ class CustomCombinedExtractor(BaseFeaturesExtractor):
             features = extractor(observation)
             encoded_tensor_list.append(features)
         return th.cat(encoded_tensor_list, dim=1)
+
+class TransformerExtractor(BaseFeaturesExtractor):
+    def __init__(
+        self,
+        observation_space: spaces.Dict,
+        normalized_image: bool = False,
+    ) -> None:
+        # TODO we do not know features-dim here before going over all the items, so put something there. This is dirty!
+        super().__init__(observation_space, features_dim=1)
+
+        extractors: Dict[str, nn.Module] = {}
+
+        total_concat_size = 0
+        for key, subspace in observation_space.spaces.items():
+            if is_image_space(subspace, normalized_image=normalized_image):
+                extractors[key] = BulletTrackCNN(subspace, features_dim=3, normalized_image=normalized_image)
+                total_concat_size += 3
+            else:
+                extractors[key] = nn.Flatten()
+                total_concat_size += get_flattened_obs_dim(subspace)
+
+        self.extractors = nn.ModuleDict(extractors)
+
+        embedding_dims = 128
+        num_heads = 4
+        num_layers = 3
+
+        self.embedding = nn.Linear(total_concat_size, embedding_dims)
+        encoder_layer = TransformerEncoderLayer(d_model=embedding_dims,
+                                                nhead=num_heads,
+                                                dim_feedforward=embedding_dims * 4)
+        self.transformer_encoder = TransformerEncoder(encoder_layer=encoder_layer, num_layers=num_layers)
+
+        # Update the features dim manually
+        self._features_dim = embedding_dims
+
+    def forward(self, observations: TensorDict) -> th.Tensor:
+        encoded_tensor_list = []
+        for key, extractor in self.extractors.items():
+            observation = observations[key]
+            features = extractor(observation)
+            encoded_tensor_list.append(features)
+        t = th.cat(encoded_tensor_list, dim=1)
+        t = self.embedding(t)
+        t = self.transformer_encoder(t)
+        return t
 
 # class BulletTrackCNN(BaseFeaturesExtractor):
 #     """

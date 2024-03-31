@@ -16,7 +16,7 @@ from gym_pybullet_drones.envs.TrackAviary import TrackAviary
 from gym_pybullet_drones.utils.utils import sync, str2bool
 from gym_pybullet_drones.utils.enums import ObservationType, ActionType, DepthType
 
-from gym_pybullet_drones.bullet_track.bullet_track_extractor import CustomCombinedExtractor
+from gym_pybullet_drones.bullet_track.bullet_track_extractor import CustomCombinedExtractor, TransformerExtractor
 from gym_pybullet_drones.bullet_track.bullet_track_policy import BulletTrackPolicy
 
 DEFAULT_DEPTH_TYPE = DepthType.IMAGE
@@ -56,7 +56,7 @@ def constant_lr_schedule(remaining_percent: float) -> float:
 def run(output_folder=DEFAULT_OUTPUT_FOLDER,
         gui=DEFAULT_GUI, plot=True, colab=DEFAULT_COLAB, record_video=DEFAULT_RECORD_VIDEO,
         episode_len=DEFAULT_EPISODE_LEN):
-    description = "yolov8s-ph-000-4-mlp"
+    description = "yolov8s-transformer-extractor-try1"
     # description = "yolov8n-baseline-with-nrpos-normalized"
     filename = Path(output_folder) / f'save-latest-{description}'
     if not filename.exists():
@@ -77,11 +77,13 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER,
     print('[INFO] Observation space:', train_env.observation_space)
 
     ### Train the model #######################################
-    net_arch = [512, 256, 256, 128]
-    features_extractor_kwargs = dict(cnn_output_dim=3)  # NatureCNN
+    net_arch = [256, 256, 256]
+    # features_extractor_kwargs = dict(cnn_output_dim=3)  # NatureCNN
+    features_extractor_kwargs = dict()
+    # features_extractor_kwargs = dict(cnn_output_dim=3)  # NatureCNN
     policy_kwargs = dict(net_arch=net_arch,
                          share_features_extractor=True,
-                         features_extractor_class=CustomCombinedExtractor,
+                         features_extractor_class=TransformerExtractor, #CustomCombinedExtractor,
                          features_extractor_kwargs=features_extractor_kwargs)
 
     observation_type = DEFAULT_OBS
