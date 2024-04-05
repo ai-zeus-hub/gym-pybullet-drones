@@ -61,8 +61,10 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
         save_eval_image=DEFAULT_SAVE_EVAL_IMAGE, record_video=DEFAULT_RECORD_VIDEO,
         pretrained=DEFAULT_PRETRAINED_PATH, super_mode=DEFAULT_SUPER_MODE, episode_len=DEFAULT_EPISODE_LEN):
     image_feature_extractor = NatureCNN
-    description = f"{rl_algo}-super-{super_mode}-{image_feature_extractor.__qualname__}-enet"
-    filename = Path(output_folder) / f'save-latest-{description}'
+    description = "testing-1"  # "yolov8s-transformer-extractor-try1"
+    description = "save-latest"
+    filename = Path(output_folder) / description
+
     if not filename.exists():
         filename.mkdir(parents=True)
 
@@ -148,32 +150,29 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
                                  eval_freq=int(1000),
                                  deterministic=True,
                                  render=False)
-    model.learn(total_timesteps=450_000,
-                callback=eval_callback,
-                log_interval=100,
-                tb_log_name=run_description)
+    # model.learn(total_timesteps=450_000,
+    #             callback=eval_callback,
+    #             log_interval=100,
+    #             tb_log_name=run_description)
 
-    #### Save the model ########################################
-    model.save(filename / 'final_model.zip')
-    print(str(filename))
+    # #### Save the model ########################################
+    # model.save(filename / 'final_model.zip')
+    # print(str(filename))
 
-    #### Print training progression ############################
-    with np.load(filename / 'evaluations.npz') as data:
-        for j in range(data['timesteps'].shape[0]):
-            print(str(data['timesteps'][j])+","+str(data['results'][j][0]))
+    # #### Print training progression ############################
+    # with np.load(filename / 'evaluations.npz') as data:
+    #     for j in range(data['timesteps'].shape[0]):
+    #         print(str(data['timesteps'][j])+","+str(data['results'][j][0]))
 
-    ############################################################
-    ############################################################
-    ############################################################
     ############################################################
     ############################################################
 
-    if (filename / 'best_model.zip').is_file():
-        path = filename / 'best_model.zip'
-    else:
-        print("[ERROR]: no model under the specified path", filename)
-        exit()
-    model = model_cls.load(path)
+    # if (filename / 'best_model.zip').is_file():
+    #     path = filename / 'best_model.zip'
+    # else:
+    #     print("[ERROR]: no model under the specified path", filename)
+    #     exit()
+    # model = PPO.load(path)
 
     #### Show (and record a video of) the model's performance ##
     test_env = TrackAviary(gui=gui, obs=DEFAULT_OBS, act=DEFAULT_ACT, episode_len=episode_len,

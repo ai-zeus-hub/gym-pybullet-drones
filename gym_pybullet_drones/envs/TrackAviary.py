@@ -103,44 +103,20 @@ class TrackAviary(BaseRLAviary):
                  distance_reward_scale: float = 1.2,
                  depth_type: DepthType = DepthType.IMAGE,
                  max_distance: float = 2.,
-                 include_rpos_in_obs: bool = False
+                 include_rpos_in_obs: bool = False,
+                 static_idx: int | None = None
                  ):
-        """Initialization of a single agent RL environment.
-
-        Using the generic single agent RL superclass.
-
-        Parameters
-        ----------
-        drone_model : DroneModel, optional
-            The desired drone type (detailed in an .urdf file in folder `assets`).
-        initial_xyzs: ndarray | None, optional
-            (NUM_DRONES, 3)-shaped array containing the initial XYZ position of the drones.
-        initial_rpys: ndarray | None, optional
-            (NUM_DRONES, 3)-shaped array containing the initial orientations of the drones (in radians).
-        physics : Physics, optional
-            The desired implementation of PyBullet physics/custom dynamics.
-        pyb_freq : int, optional
-            The frequency at which PyBullet steps (a multiple of ctrl_freq).
-        ctrl_freq : int, optional
-            The frequency at which the environment steps.
-        gui : bool, optional
-            Whether to use PyBullet's GUI.
-        record : bool, optional
-            Whether to save a video of the simulation.
-        obs : ObservationType, optional
-            The type of observation space (kinematic information or vision)
-        act : ActionType, optional
-            The type of action space (1 or 3D; RPMS, thrust and torques, or waypoint with PID control)
-
-        """
         self.include_rpos_in_obs = include_rpos_in_obs
         self.EPISODE_LEN_SEC = episode_len
 
         num_tracking_drones = 1
 
+        self.env_choices = [0, 3, 4, 5, 6]
         self.depth_type = depth_type
+        self.add_shapes = True
         self.distance_reward_scale = distance_reward_scale
-        self.env_idx = 0
+        self.env_idx = static_idx if static_idx is not None else 0
+        self.static_idx = static_idx
         self.max_distance = max_distance
         self.desired_distance = 0.25
 
@@ -180,6 +156,14 @@ class TrackAviary(BaseRLAviary):
         self.seg = np.zeros(((self.NUM_DRONES, self.IMG_RES[1], self.IMG_RES[0])))
 
     ################################################################################
+
+    def _init_env(self) -> None:
+        xyzs, rpys, waypoints = polygon_trajectory(self.CTRL_FREQ, n_sides=self.env_idx, radius=0.5)
+        for agent in self.EXTERNAL_AGENTS:
+            agent.reset(xyzs, rpys, waypoints)
+        if self.add_shapes:
+            self._addObstacles()
+
 
     def is_target_in_fov(self, target_pos: np.ndarray) -> bool:
         # Get the view matrix from the drone's current position and orientation
@@ -304,16 +288,18 @@ class TrackAviary(BaseRLAviary):
             Whether the current episode is done.
 
         """
-        state = self._getDroneStateVector(0)
-        target_pos, target_rpy = self._target_waypoint()
-        total_dist, x_dist, y_dist, z_dist = self._distance_from_next_target(target_pos)
-        if ((total_dist > self.max_distance) or       # Truncate when the drone is too far away
-            # (z_dist > .2) or
-            (abs(state[7]) > .4) or
-            (abs(state[8]) > .4)     # Truncate when the drone is too tilted
-        ):
-            return True
         return False
+    
+        # state = self._getDroneStateVector(0)
+        # target_pos, target_rpy = self._target_waypoint()
+        # total_dist, x_dist, y_dist, z_dist = self._distance_from_next_target(target_pos)
+        # if ((total_dist > self.max_distance) or # Terminate when the drone is too far away
+        #     # (z_dist > .2) or
+        #     (abs(state[7]) > .4) or
+        #     (abs(state[8]) > .4)     # Terminate when the drone is too tilted
+        # ):
+        #     return True
+        # return False
 
     ################################################################################
 
@@ -355,13 +341,14 @@ class TrackAviary(BaseRLAviary):
     def reset(self,
               seed: int = None,
               options: dict = None):
-        polygon_shapes = [0, 3, 4, 5, 6]
-        self.env_idx = np.random.choice(polygon_shapes)
-        self.img_counter = 0
-        xyzs, rpys, waypoints = polygon_trajectory(self.CTRL_FREQ, n_sides=self.env_idx, radius=0.5)
 
-        for agent in self.EXTERNAL_AGENTS:
-            agent.reset(xyzs, rpys, waypoints)
+        self.env_idx = self.static_idx if self.static_idx is not None else np.random.choice(self.env_choices)
+        self.add_shapes = True
+        self._init_env()
+        self.img_counter = 0
+        # xyzs, rpys, waypoints = polygon_trajectory(self.CTRL_FREQ, n_sides=self.env_idx, radius=0.5)
+        # for agent in self.EXTERNAL_AGENTS:
+            # agent.reset(xyzs, rpys, waypoints)
         return super().reset(seed, options)
 
     def _exportRGBD(self,
@@ -427,18 +414,18 @@ class TrackAviary(BaseRLAviary):
                 max_vel = np.array([3.5, 3.5, 3.5])  # empirically observed in simulation
                 clipped_vel = np.clip(vel, -max_vel, max_vel)
                 norm_vel = np.clip(clipped_vel, -max_vel, max_vel) / max_vel
-                for j in range(len(max_vel)):
-                    if vel[j] > max_vel[j]:
-                        print(f"***WARNING: max_vel too low! Saw {vel=} and {max_vel=}")
+                # for j in range(len(max_vel)):
+                #     if vel[j] > max_vel[j]:
+                #         print(f"***WARNING: max_vel too low! Saw {vel=} and {max_vel=}")
 
                 # angular velocity
                 w_vel = state[13:16]
                 max_w_vel = np.array([16, 16, 16])  # empirically observed in simulation 13.1, 8.465
                 clipped_w_vel = np.clip(w_vel, -max_w_vel, max_w_vel)
                 norm_w_vel = np.clip(clipped_w_vel, -max_w_vel, max_w_vel) / max_w_vel
-                for j in range(len(w_vel)):
-                    if w_vel[j] > max_w_vel[j]:
-                        print(f"***WARNING: max_w_vel too low! Saw {w_vel=} and {max_w_vel=}")
+                # for j in range(len(w_vel)):
+                #     if w_vel[j] > max_w_vel[j]:
+                #         print(f"***WARNING: max_w_vel too low! Saw {w_vel=} and {max_w_vel=}")
 
                 # relative position
                 if self.include_rpos_in_obs:
@@ -520,5 +507,50 @@ class TrackAviary(BaseRLAviary):
             raise ValueError("Dict space should contain at least item")
         return dict_space
 
+    def add_cylinder(self,
+                     position: tuple[float, float, float],
+                     height: float = 2,
+                     radius: float = .125) -> int:
+        # Create a collision shape for the cylinder
+        collision_shape_id = p.createCollisionShape(
+            shapeType=p.GEOM_CYLINDER,
+            radius=radius,
+            height=height,
+            physicsClientId=self.CLIENT,
+        )
+
+        # Create a multibody for the cylinder and add it to the simulation
+        cylinder_id = p.createMultiBody(
+            baseMass=1,
+            baseCollisionShapeIndex=collision_shape_id,
+            basePosition=position,
+            physicsClientId=self.CLIENT,
+        )
+
+        return cylinder_id
+
     def _addObstacles(self):
-        pass
+        # if self.env_idx == 0:
+        #     self.add_cylinder((0.5, 0.5, 0))
+        return
+
+        # p.loadURDF("block.urdf",
+        #             [1, 0, .1],
+        #             p.getQuaternionFromEuler([0, 0, 0]),
+        #             physicsClientId=self.CLIENT
+        #             )
+        # p.loadURDF("cube_small.urdf",
+        #             [0, 1, .1],
+        #             p.getQuaternionFromEuler([0, 0, 0]),
+        #             physicsClientId=self.CLIENT
+        #             )
+        # p.loadURDF("duck_vhacd.urdf",
+        #             [-1, 0, .1],
+        #             p.getQuaternionFromEuler([0, 0, 0]),
+        #             physicsClientId=self.CLIENT
+        #             )
+        # p.loadURDF("teddy_vhacd.urdf",
+        #             [0, -1, .1],
+        #             p.getQuaternionFromEuler([0, 0, 0]),
+        #             physicsClientId=self.CLIENT
+        #             )
