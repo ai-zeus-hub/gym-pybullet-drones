@@ -93,6 +93,7 @@ class TrackAviary(BaseRLAviary):
     def __init__(self,
                  drone_model: DroneModel = DroneModel.CF2X,
                  physics: Physics = Physics.PYB,
+                 output_folder: str = 'results',
                  pyb_freq: int = 120,
                  ctrl_freq: int = 24,
                  gui=False,
@@ -104,7 +105,7 @@ class TrackAviary(BaseRLAviary):
                  depth_type: DepthType = DepthType.IMAGE,
                  max_distance: float = 2.,
                  include_rpos_in_obs: bool = False,
-                 static_idx: int | None = None
+                 static_idx: int | None = None,
                  ):
         self.include_rpos_in_obs = include_rpos_in_obs
         self.EPISODE_LEN_SEC = episode_len
@@ -146,6 +147,7 @@ class TrackAviary(BaseRLAviary):
                          act=act,
                          external_agents=[tracked_drone],
                          action_buffer_size=1,
+                         output_folder=output_folder
                          )
         self.img_counter = 0
         self.IMG_RES = np.array([64, 64])  # todo: ajr - remove
@@ -161,8 +163,6 @@ class TrackAviary(BaseRLAviary):
         xyzs, rpys, waypoints = polygon_trajectory(self.CTRL_FREQ, n_sides=self.env_idx, radius=0.5)
         for agent in self.EXTERNAL_AGENTS:
             agent.reset(xyzs, rpys, waypoints)
-        if self.add_shapes:
-            self._addObstacles()
 
 
     def is_target_in_fov(self, target_pos: np.ndarray) -> bool:
@@ -288,18 +288,16 @@ class TrackAviary(BaseRLAviary):
             Whether the current episode is done.
 
         """
+        state = self._getDroneStateVector(0)
+        target_pos, target_rpy = self._target_waypoint()
+        total_dist, x_dist, y_dist, z_dist = self._distance_from_next_target(target_pos)
+        if ((total_dist > self.max_distance) or # Terminate when the drone is too far away
+            # (z_dist > .2) or
+            (abs(state[7]) > .4) or
+            (abs(state[8]) > .4)     # Terminate when the drone is too tilted
+        ):
+            return True
         return False
-    
-        # state = self._getDroneStateVector(0)
-        # target_pos, target_rpy = self._target_waypoint()
-        # total_dist, x_dist, y_dist, z_dist = self._distance_from_next_target(target_pos)
-        # if ((total_dist > self.max_distance) or # Terminate when the drone is too far away
-        #     # (z_dist > .2) or
-        #     (abs(state[7]) > .4) or
-        #     (abs(state[8]) > .4)     # Terminate when the drone is too tilted
-        # ):
-        #     return True
-        # return False
 
     ################################################################################
 
@@ -341,14 +339,10 @@ class TrackAviary(BaseRLAviary):
     def reset(self,
               seed: int = None,
               options: dict = None):
-
         self.env_idx = self.static_idx if self.static_idx is not None else np.random.choice(self.env_choices)
-        self.add_shapes = True
+        self.add_shapes = self.GUI or bool(np.random.choice([True, False]))
         self._init_env()
         self.img_counter = 0
-        # xyzs, rpys, waypoints = polygon_trajectory(self.CTRL_FREQ, n_sides=self.env_idx, radius=0.5)
-        # for agent in self.EXTERNAL_AGENTS:
-            # agent.reset(xyzs, rpys, waypoints)
         return super().reset(seed, options)
 
     def _exportRGBD(self,
@@ -376,7 +370,7 @@ class TrackAviary(BaseRLAviary):
         observation = {}
         if self.OBS_TYPE == ObservationType.RGB or self.OBS_TYPE == ObservationType.MULTI:
             # self.IMG_RES is (w, h), but getDroneImage returns (h, w)
-            self.rgb[0], self.dep[0], self.seg[0] = self._getDroneImages(0, segmentation=False)
+            self.rgb[0], self.dep[0], self.seg[0] = self._getDroneImages(0, segmentation=self.GUI)
             #### Printing observation to PNG frames example ############
             save_dataset = False
             if save_dataset:
@@ -454,19 +448,6 @@ class TrackAviary(BaseRLAviary):
             dict_space["depth"] = spaces.Box(low=-1., high=+1.,
                                              shape=(self.IMG_RES[1]//8, self.IMG_RES[0]//8))
         if self.OBS_TYPE == ObservationType.KIN or self.OBS_TYPE == ObservationType.MULTI:
-            #### OBS SPACE OF SIZE 12
-            #### Observation vector ### R, P, Y, VX, VY, VZ, WX, WY, WZ, X_R, Y_R, Z_R
-            # lo = -np.inf
-            # hi = np.inf
-            # obs_lower_bound = np.array([[lo,lo,lo,lo,lo,lo,lo,lo,lo,lo,lo,lo] for _ in range(self.NUM_DRONES)])
-            # obs_upper_bound = np.array([[hi,hi,hi,hi,hi,hi,hi,hi,hi,hi,hi,hi] for _ in range(self.NUM_DRONES)])
-
-            # # with rpos
-            # norm_lo = -1
-            # norm_hi = +1
-            # obs_lower_bound = np.array([[norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo,norm_lo] for _ in range(self.NUM_DRONES)])
-            # obs_upper_bound = np.array([[norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,norm_hi,] for _ in range(self.NUM_DRONES)])
-
             # without rpos
             norm_lo = -1
             norm_hi = +1
@@ -480,10 +461,6 @@ class TrackAviary(BaseRLAviary):
                                             norm_lo] for _ in range(self.NUM_DRONES)])
                 obs_upper_bound = np.array([[norm_hi, norm_hi, norm_hi, norm_hi, norm_hi, norm_hi, norm_hi, norm_hi,
                                             norm_hi] for _ in range(self.NUM_DRONES)])
-
-            # for _ in range(self.future_traj_steps):
-            #     obs_lower_bound = np.hstack([obs_lower_bound, np.array([[lo, lo, lo]])])
-            #     obs_upper_bound = np.hstack([obs_upper_bound, np.array([[hi, hi, hi]])])
 
             #### Add action buffer to observation space ################
             act_lo = -1
@@ -509,48 +486,53 @@ class TrackAviary(BaseRLAviary):
 
     def add_cylinder(self,
                      position: tuple[float, float, float],
-                     height: float = 2,
-                     radius: float = .125) -> int:
-        # Create a collision shape for the cylinder
+                     height: float = 2.5,
+                     radius: float = .02):
         collision_shape_id = p.createCollisionShape(
             shapeType=p.GEOM_CYLINDER,
             radius=radius,
             height=height,
             physicsClientId=self.CLIENT,
         )
-
-        # Create a multibody for the cylinder and add it to the simulation
         cylinder_id = p.createMultiBody(
-            baseMass=1,
+            baseMass=0,
             baseCollisionShapeIndex=collision_shape_id,
             basePosition=position,
             physicsClientId=self.CLIENT,
         )
 
-        return cylinder_id
-
     def _addObstacles(self):
-        # if self.env_idx == 0:
-        #     self.add_cylinder((0.5, 0.5, 0))
-        return
-
-        # p.loadURDF("block.urdf",
-        #             [1, 0, .1],
-        #             p.getQuaternionFromEuler([0, 0, 0]),
-        #             physicsClientId=self.CLIENT
-        #             )
-        # p.loadURDF("cube_small.urdf",
-        #             [0, 1, .1],
-        #             p.getQuaternionFromEuler([0, 0, 0]),
-        #             physicsClientId=self.CLIENT
-        #             )
-        # p.loadURDF("duck_vhacd.urdf",
-        #             [-1, 0, .1],
-        #             p.getQuaternionFromEuler([0, 0, 0]),
-        #             physicsClientId=self.CLIENT
-        #             )
-        # p.loadURDF("teddy_vhacd.urdf",
-        #             [0, -1, .1],
-        #             p.getQuaternionFromEuler([0, 0, 0]),
-        #             physicsClientId=self.CLIENT
-        #             )
+        if not self.add_shapes:
+            return
+        if self.env_idx == 0:
+            self.add_cylinder((-0.45, -0.25, 0))
+            self.add_cylinder((-0.45, +0.25, 0))
+            self.add_cylinder((-1.3, +0.15, 0))
+            self.add_cylinder((+0.5, 0, 0))
+        elif self.env_idx == 3:
+            self.add_cylinder((-0.45, +0, 0))
+            self.add_cylinder((+0.45, +0, 0))
+            self.add_cylinder((-1.1, 0, 0))
+        elif self.env_idx == 4:
+            self.add_cylinder((-0.45, -0.75, 0))
+            self.add_cylinder((-0.45, -0.2, 0))
+            self.add_cylinder((-0.45, +0.2, 0))
+            self.add_cylinder((-0.45, +0.75, 0))
+            self.add_cylinder((-1.3, +0.15, 0))
+            self.add_cylinder((+0.5, 0, 0))
+        elif self.env_idx == 5:
+            self.add_cylinder((-0.45, -0.75, 0))
+            self.add_cylinder((-0.45, -0.25, 0))
+            self.add_cylinder((-0.45, +0.25, 0))
+            self.add_cylinder((-0.45, +0.75, 0))
+            self.add_cylinder((-1.3, +0.15, 0))
+            self.add_cylinder((+0.5, 0, 0))
+        elif self.env_idx == 6:
+            self.add_cylinder((-0.45, -0.8, 0))
+            self.add_cylinder((-0.45, -0.2, 0))
+            self.add_cylinder((-0.45, +0.2, 0))
+            self.add_cylinder((-0.45, +0.8, 0))
+            self.add_cylinder((-1.3, +0.15, 0))
+            self.add_cylinder((+0.5, 0, 0))
+        else:
+            raise NotImplementedError

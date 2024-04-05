@@ -22,7 +22,7 @@ from gym_pybullet_drones.bullet_track.bullet_track_policy import BulletTrackPoli
 DEFAULT_DEPTH_TYPE = DepthType.IMAGE
 DEFAULT_GUI = True
 DEFAULT_RECORD_VIDEO = True
-DEFAULT_OUTPUT_FOLDER = Path('results')
+DEFAULT_OUTPUT_FOLDER = Path('final_results')
 DEFAULT_SAVE_EVAL_IMAGE = True
 DEFAULT_RL_ALGO = "PPO"
 DEFAULT_SUPER_MODE = False
@@ -60,10 +60,18 @@ def constant_lr_schedule(remaining_percent: float) -> float:
 def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAULT_GUI,
         save_eval_image=DEFAULT_SAVE_EVAL_IMAGE, record_video=DEFAULT_RECORD_VIDEO,
         pretrained=DEFAULT_PRETRAINED_PATH, super_mode=DEFAULT_SUPER_MODE, episode_len=DEFAULT_EPISODE_LEN):
+    action_str = str(DEFAULT_ACT).split('.')[1]
+    if DEFAULT_OBS == ObservationType.MULTI:
+        obs_str = "RGBD + Kinematics"
+        if super_mode:
+            obs_str += " + RPOS"
+    elif DEFAULT_OBS == ObservationType.RGB:
+        obs_str = "RGBD"
+    else:
+        raise ValueError
     image_feature_extractor = NatureCNN
-    description = "testing-1"  # "yolov8s-transformer-extractor-try1"
-    description = "save-latest"
-    filename = Path(output_folder) / description
+    description = "End-to-End NatureCNN"
+    filename = Path(output_folder) / obs_str / action_str / description
 
     if not filename.exists():
         filename.mkdir(parents=True)
@@ -72,13 +80,15 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
                              env_kwargs=dict(obs=DEFAULT_OBS,
                                              act=DEFAULT_ACT,
                                              episode_len=episode_len,
-                                             include_rpos_in_obs=super_mode),
+                                             include_rpos_in_obs=super_mode,
+                                             output_folder=filename),
                              n_envs=1,
                              seed=0)
     eval_env = TrackAviary(obs=DEFAULT_OBS,
                            act=DEFAULT_ACT,
                            episode_len=episode_len,
-                           include_rpos_in_obs=super_mode)
+                           include_rpos_in_obs=super_mode,
+                           output_folder=filename)
 
     #### Check the environment's spaces ########################
     print('[INFO] Action space:', train_env.action_space)
@@ -86,7 +96,7 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
 
     ### Train the model #######################################
     net_arch = [256, 256, 256]
-    features_extractor_kwargs = dict(image_feature_extractor=BulletTrackCNN,
+    features_extractor_kwargs = dict(image_feature_extractor=image_feature_extractor,
                                      cnn_output_dim=3,
                                      feature_dims=32)
     # features_extractor_kwargs = dict()
@@ -176,21 +186,21 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
 
     #### Show (and record a video of) the model's performance ##
     test_env = TrackAviary(gui=gui, obs=DEFAULT_OBS, act=DEFAULT_ACT, episode_len=episode_len,
-                           record=record_video, include_rpos_in_obs=super_mode)
+                           record=record_video, include_rpos_in_obs=super_mode, output_folder=filename,
+                           static_idx=6)
     test_env_nogui = TrackAviary(obs=DEFAULT_OBS, act=DEFAULT_ACT,
-                                 episode_len=episode_len, include_rpos_in_obs=super_mode)
+                                 episode_len=episode_len, include_rpos_in_obs=super_mode, output_folder=filename,
+                                 static_idx=6)
     logger = Logger(logging_freq_hz=int(test_env.CTRL_FREQ), num_drones=1,
                     output_folder=str(output_folder), colab=save_eval_image)
 
-    mean_reward, std_reward = evaluate_policy(model, test_env_nogui, n_eval_episodes=10)
-    print("\n\n\nMean reward ", mean_reward, " +- ", std_reward, "\n\n")
+    # mean_reward, std_reward = evaluate_policy(model, test_env_nogui, n_eval_episodes=10)
+    # print("\n\n\nMean reward ", mean_reward, " +- ", std_reward, "\n\n")
 
     obs, info = test_env.reset(seed=42, options={})
     start = time.time()
     for i in range((test_env.EPISODE_LEN_SEC+2)*test_env.CTRL_FREQ):
-        action, _states = model.predict(obs,
-                                        deterministic=True
-                                        )
+        action, _states = model.predict(obs, deterministic=True)
         obs, reward, terminated, truncated, info = test_env.step(action)
         # print("Obs:", obs, "\tAction", action, "\tReward:", reward, "\tTerminated:", terminated, "\tTruncated:", truncated)
         logger.log(drone=0,
