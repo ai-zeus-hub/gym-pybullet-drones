@@ -120,6 +120,7 @@ class TrackAviary(BaseRLAviary):
         self.static_idx = static_idx
         self.max_distance = max_distance
         self.desired_distance = 0.25
+        self._collisions: list[tuple[tuple[float, float, float], float]] = []  # center to radius
 
         xyz, rpy, waypoints = polygon_trajectory(ctrl_freq, n_sides=self.env_idx, radius=0.5)
 
@@ -197,6 +198,22 @@ class TrackAviary(BaseRLAviary):
 
         return in_fov
 
+    def _collided(self, collision_threshold: float = .08) -> bool:
+        state = self._getDroneStateVector(0)
+        my_position = state[0:3]
+        for center, radius in self._collisions:
+            center_point = np.array(center)
+
+            my_position_xy = my_position[:2]
+            center_point_xy = center_point[:2]
+
+            vector_to_point = my_position_xy - center_point_xy
+
+            distance_to_cylinder_axis = np.linalg.norm(vector_to_point)
+
+            if distance_to_cylinder_axis < (radius + collision_threshold):
+                return True
+        return False
     def _computeReward(self):
         """Computes the current reward value for the drone doing the tracking
 
@@ -205,6 +222,9 @@ class TrackAviary(BaseRLAviary):
         float
             The reward.
         """
+        if self._collided():
+            return -10
+
         target_pos, target_rpy = self._target_waypoint()
         total_dist, x_dist, y_dist, z_dist = self._distance_from_next_target(target_pos)
         reward_pose = np.exp(-total_dist * self.distance_reward_scale)
@@ -296,6 +316,8 @@ class TrackAviary(BaseRLAviary):
             (abs(state[7]) > .4) or
             (abs(state[8]) > .4)     # Terminate when the drone is too tilted
         ):
+            return True
+        elif self._collided():
             return True
         return False
 
@@ -500,8 +522,10 @@ class TrackAviary(BaseRLAviary):
             basePosition=position,
             physicsClientId=self.CLIENT,
         )
+        self._collisions.append((position, radius))
 
     def _addObstacles(self):
+        self._collisions = []
         if not self.add_shapes:
             return
         if self.env_idx == 0:

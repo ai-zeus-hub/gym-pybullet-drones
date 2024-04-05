@@ -25,14 +25,13 @@ DEFAULT_RECORD_VIDEO = True
 DEFAULT_OUTPUT_FOLDER = Path('final_results')
 DEFAULT_SAVE_EVAL_IMAGE = True
 DEFAULT_RL_ALGO = "PPO"
-DEFAULT_SUPER_MODE = False
 DEFAULT_PRETRAINED_PATH = Path("results/save-latest-PPO-super-True-NatureCNN-with-intermediary/best_model.zip")
-# DEFAULT_PRETRAINED_PATH = Path()
-
-DEFAULT_OBS = ObservationType.MULTI
-DEFAULT_ACT = ActionType.RPM  # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
 DEFAULT_EPISODE_LEN = 8  # usually 8
 MAX_LR = 0.0005
+
+DEFAULT_OBS = ObservationType.RGB
+DEFAULT_SUPER_MODE = False
+DEFAULT_ACT = ActionType.RPM  # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
 
 
 def piecewise_lr_schedule(remaining_percent: float) -> float:  # designed for 400k
@@ -62,15 +61,15 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
         pretrained=DEFAULT_PRETRAINED_PATH, super_mode=DEFAULT_SUPER_MODE, episode_len=DEFAULT_EPISODE_LEN):
     action_str = str(DEFAULT_ACT).split('.')[1]
     if DEFAULT_OBS == ObservationType.MULTI:
-        obs_str = "RGBD + Kinematics"
-        if super_mode:
-            obs_str += " + RPOS"
+        obs_str = "RGBD-Kinematics"
     elif DEFAULT_OBS == ObservationType.RGB:
         obs_str = "RGBD"
     else:
         raise ValueError
+    if super_mode:
+        obs_str += "-RPOS"
     image_feature_extractor = NatureCNN
-    description = "End-to-End NatureCNN"
+    description = "End-to-End-NatureCNN"
     filename = Path(output_folder) / obs_str / action_str / description
 
     if not filename.exists():
@@ -112,7 +111,7 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
         f"LR={MAX_LR}"
     ])
 
-    if rl_algo == "PPO":        
+    if rl_algo == "PPO":
         model = PPO(BulletTrackPolicy,
                     train_env,
                     tensorboard_log=str(output_folder / 'tensorboard'),
@@ -123,7 +122,7 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
                     n_epochs=4,
                     ent_coef=0.001,
                     max_grad_norm=10.0,
-                    policy_kwargs=policy_kwargs)            
+                    policy_kwargs=policy_kwargs)
         model_cls = PPO
     elif rl_algo == "DQN":
         model = DQN(BulletTrackPolicy,
@@ -143,7 +142,7 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
         model_cls = DQN
     else:
         raise ValueError(f"Unsupported rl algo: {rl_algo}")
-    
+
     if pretrained.is_file():
         print(f"Loading from {str(pretrained)}")
         old_model = model_cls.load(pretrained)
@@ -216,7 +215,7 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
             obs, info = test_env.reset(seed=42, options={})
     test_env.close()
 
-    logger.plot()
+    logger.plot(output_folder=filename)
 
 if __name__ == '__main__':
     #### Define and parse (optional) arguments for the script ##

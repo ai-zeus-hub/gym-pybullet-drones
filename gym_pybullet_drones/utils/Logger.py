@@ -3,6 +3,7 @@ from datetime import datetime
 from cycler import cycler
 import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -218,7 +219,7 @@ class Logger(object):
 
     ################################################################################
 
-    def plot(self, pwm=False):
+    def plot(self, output_folder: Path, pwm=False):
         """Logs entries for a single simulation step, of a single drone.
 
         Parameters
@@ -402,6 +403,6 @@ class Logger(object):
                             hspace=0.0
                             )
         if self.COLAB:
-            plt.savefig(os.path.join('results', 'output_figure.png'))
+            plt.savefig(str(output_folder / 'output_figure.png'))
         else:
             plt.show()
