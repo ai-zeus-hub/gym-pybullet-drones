@@ -5,7 +5,9 @@ from ultralytics.engine.results import Results
 
 import torch as th
 from torch import nn
-from torch.nn import TransformerEncoder, TransformerEncoderLayer
+from torch.nn import TransformerEncoder, TransformerEncoderLayer, Identity
+from torchvision import models, transforms
+from torchvision.models.feature_extraction import create_feature_extractor
 
 from gymnasium import spaces
 import gymnasium as gym
@@ -81,38 +83,72 @@ def isolated_forward(x):
     return model.predict(bgr_tensor, conf=0.35, imgsz=64, verbose=False)
 
 
+# class BulletTrackCNN(BaseFeaturesExtractor):
+#     def __init__(self,
+#                  observation_space: gym.Space,
+#                  features_dim: int = 3,
+#                  normalized_image: bool = False,
+#                  pretrained_weights: Path = Path.cwd() /
+#                                             "bullet-track-yolov8-s-drone-detector-single-cls" /
+#                                             "train" /
+#                                             "weights" /
+#                                             "best.pt"):
+#         super().__init__(observation_space, features_dim)
+#         self.observation_space = observation_space
+#         self.input_size = observation_space.shape  # Extracting the input size from the observation space
+#         self.normalized_image = normalized_image
+#         self.model = UntrainableYOLO(pretrained_weights)
+
+#     def forward(self, x: th.Tensor) -> th.Tensor:
+#         images = x[:, 0:3, :, :]
+#         depths = x[:, 3, :, :]
+#         with th.no_grad():
+#             # result = self.model.predict(images, imgsz=self.input_size[1:])
+#             result = isolated_forward(images)  # todo: ajr -- ok? , device=0 -- verify using cuda:0 later
+#         return result_to_output(result, depths)
+
 class BulletTrackCNN(BaseFeaturesExtractor):
     def __init__(self,
                  observation_space: gym.Space,
                  features_dim: int = 3,
                  normalized_image: bool = False,
-                 pretrained_weights: Path = Path.cwd() /
-                                            "bullet-track-yolov8-s-drone-detector-single-cls" /
-                                            "train" /
-                                            "weights" /
-                                            "best.pt"):
+                 pretrained_weights: Path | None = None): 
+                                            # Path.cwd() /
+                                            # "bullet-track-yolov8-s-drone-detector-single-cls" /
+                                            # "train" /
+                                            # "weights" /
+                                            # "best.pt"):
         super().__init__(observation_space, features_dim)
         self.observation_space = observation_space
         self.input_size = observation_space.shape  # Extracting the input size from the observation space
         self.normalized_image = normalized_image
-        self.model = UntrainableYOLO(pretrained_weights)
-
+        # self.model = UntrainableYOLO(pretrained_weights)
+        if pretrained_weights is None:
+            self.model = models.efficientnet_b0(models.EfficientNet_B0_Weights.IMAGENET1K_V1).features
+        else:
+            raise RuntimeError("Add support: todo")
+        
+        
     def forward(self, x: th.Tensor) -> th.Tensor:
-        images = x[:, 0:3, :, :]
-        depths = x[:, 3, :, :]
-        with th.no_grad():
-            # result = self.model.predict(images, imgsz=self.input_size[1:])
-            result = isolated_forward(images)  # todo: ajr -- ok? , device=0 -- verify using cuda:0 later
-        return result_to_output(result, depths)
+        out = self.model(x)
+        return out
+        # images = x[:, 0:3, :, :]
+        # depths = x[:, 3, :, :]
+        # with th.no_grad():
+        #     # result = self.model.predict(images, imgsz=self.input_size[1:])
+        #     result = isolated_forward(images)  # todo: ajr -- ok? , device=0 -- verify using cuda:0 later
+        # return result_to_output(result, depths)
 
 
 
-class CustomCombinedExtractor(BaseFeaturesExtractor):
+class BulletTrackCombinedExtractor(BaseFeaturesExtractor):
     def __init__(
         self,
         observation_space: spaces.Dict,
         cnn_output_dim: int = 256,
         normalized_image: bool = False,
+        image_feature_extractor = BulletTrackCNN,
+        feature_dims: int = 0
     ) -> None:
         # TODO we do not know features-dim here before going over all the items, so put something there. This is dirty!
         super().__init__(observation_space, features_dim=1)
@@ -122,16 +158,21 @@ class CustomCombinedExtractor(BaseFeaturesExtractor):
         total_concat_size = 0
         for key, subspace in observation_space.spaces.items():
             if is_image_space(subspace, normalized_image=normalized_image):
-                extractors[key] = BulletTrackCNN(subspace, features_dim=cnn_output_dim, normalized_image=normalized_image)
+                extractors[key] = image_feature_extractor(subspace, features_dim=cnn_output_dim, normalized_image=normalized_image)
                 total_concat_size += cnn_output_dim
             else:
                 extractors[key] = nn.Flatten()
                 total_concat_size += get_flattened_obs_dim(subspace)
 
         self.extractors = nn.ModuleDict(extractors)
+        if feature_dims > 0:
+            self.out = nn.Linear(in_features=total_concat_size, out_features=feature_dims)
+        else:
+            self.out = nn.Flatten()
+            feature_dims = total_concat_size
 
         # Update the features dim manually
-        self._features_dim = total_concat_size
+        self._features_dim = feature_dims
 
     def forward(self, observations: TensorDict) -> th.Tensor:
         encoded_tensor_list = []
@@ -139,7 +180,8 @@ class CustomCombinedExtractor(BaseFeaturesExtractor):
             observation = observations[key]
             features = extractor(observation)
             encoded_tensor_list.append(features)
-        return th.cat(encoded_tensor_list, dim=1)
+        t = th.cat(encoded_tensor_list, dim=1)
+        return self.out(t)
 
 class TransformerExtractor(BaseFeaturesExtractor):
     def __init__(

@@ -1,3 +1,4 @@
+from numpy import ndarray
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,6 +14,8 @@ from stable_baselines3.common.torch_layers import (
     BaseFeaturesExtractor,
     CombinedExtractor,
 )
+
+from gym_pybullet_drones.bullet_track.bullet_track_extractor import BulletTrackCombinedExtractor
 
 
 class AttentionModule(nn.Module):
@@ -197,7 +200,7 @@ class BulletTrackPolicy(MultiInputActorCriticPolicy):
         full_std: bool = True,
         use_expln: bool = False,
         squash_output: bool = False,
-        features_extractor_class: Type[BaseFeaturesExtractor] = CombinedExtractor,
+        features_extractor_class: Type[BaseFeaturesExtractor] = BulletTrackCombinedExtractor,
         features_extractor_kwargs: Optional[Dict[str, Any]] = None,
         share_features_extractor: bool = True,
         normalize_images: bool = True,
@@ -223,6 +226,15 @@ class BulletTrackPolicy(MultiInputActorCriticPolicy):
             optimizer_class,
             optimizer_kwargs,
         )
+    
+    def load_from_policy(self, other: "BulletTrackPolicy") -> None:
+        # self.features_extractor.extractors["img"].load_state_dict(other.features_extractor.extractors["img"].state_dict())
+        # for param in self.features_extractor.extractors["img"].parameters():
+        #     param.requires_grad = False
+        # self.mlp_extractor.load_state_dict(other.mlp_extractor.state_dict())
+        # for param in self.mlp_extractor.parameters():
+        #     param.requires_grad = False
+        return
 
     def _build_mlp_extractor(self) -> None:
         """
