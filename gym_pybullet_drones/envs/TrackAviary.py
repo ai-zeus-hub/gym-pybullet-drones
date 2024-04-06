@@ -198,7 +198,7 @@ class TrackAviary(BaseRLAviary):
 
         return in_fov
 
-    def _collided(self, collision_threshold: float = .08) -> bool:
+    def _collided(self, collision_threshold: float = .06) -> bool:
         state = self._getDroneStateVector(0)
         my_position = state[0:3]
         for center, radius in self._collisions:
@@ -214,6 +214,11 @@ class TrackAviary(BaseRLAviary):
             if distance_to_cylinder_axis < (radius + collision_threshold):
                 return True
         return False
+
+    @staticmethod
+    def spinning_penalty(vel_w: np.array, sensitivity=1) -> float:
+        return 1 / (1 + np.exp(-sensitivity * vel_w[0]))
+
     def _computeReward(self):
         """Computes the current reward value for the drone doing the tracking
 
@@ -230,24 +235,28 @@ class TrackAviary(BaseRLAviary):
         reward_pose = np.exp(-total_dist * self.distance_reward_scale)
 
         state = self._getDroneStateVector(0)
-        current_rpy = state[7:10]
-
-        target_fov_penalty = 0
+        # current_rpy = state[7:10]
+        # target_fov_penalty = 0
         # if not self.is_target_in_fov(target_pos):
         #     target_fov_penalty = 1
 
-        # spin = np.square(velocity[..., -1])
-        vel_w = state[13:16]
-        angular_velocity_penalty = 0  # 0.005 * np.sum(np.square(vel_w))
-        z_penalty = 0  # 1./2 * np.exp(-z_dist * 0.8)
-        penalties = z_penalty + angular_velocity_penalty + target_fov_penalty
+        vel_w: np.array = state[13:16]
+        spinnage = np.abs(vel_w).sum()
+        spin_weight = 0.5
+        reward_spin = spin_weight * np.exp(-np.square(spinnage))
 
-        max_steps = self.EPISODE_LEN_SEC * self.CTRL_FREQ
-        step_reward = 1. / max_steps
-        keep_alive = step_reward * self.step_counter
+        # angular_velocity_penalty = max(0.2, self.spinning_penalty(vel_w))  # 0.005 * np.sum(np.square(vel_w))
+        # angular_velocity_penalty = 0
+        # z_penalty = 0  # 1./2 * np.exp(-z_dist * 0.8)
+        # penalties = z_penalty + angular_velocity_penalty + target_fov_penalty
+        penalties = 0
 
+        # max_steps = self.EPISODE_LEN_SEC * self.CTRL_FREQ
+        # step_reward = 1. / max_steps
+        # keep_alive = step_reward * self.step_counter
         # reward = min(1, 0.9 * reward_pose + 0.1 * keep_alive) - penalties
-        reward = reward_pose - penalties
+
+        reward = (reward_pose + reward_spin) - penalties
         return reward
 
     ################################################################################
@@ -317,8 +326,8 @@ class TrackAviary(BaseRLAviary):
             (abs(state[8]) > .4)     # Terminate when the drone is too tilted
         ):
             return True
-        elif self._collided():
-            return True
+        # elif self._collided():
+        #     return True
         return False
 
     ################################################################################

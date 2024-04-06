@@ -22,7 +22,7 @@ from gym_pybullet_drones.bullet_track.bullet_track_policy import BulletTrackPoli
 DEFAULT_DEPTH_TYPE = DepthType.IMAGE
 DEFAULT_GUI = True
 DEFAULT_RECORD_VIDEO = True
-DEFAULT_OUTPUT_FOLDER = Path('final_results')
+DEFAULT_OUTPUT_FOLDER = Path('final_results_collision')
 DEFAULT_SAVE_EVAL_IMAGE = True
 DEFAULT_RL_ALGO = "PPO"
 DEFAULT_PRETRAINED_PATH = Path("results/save-latest-PPO-super-True-NatureCNN-with-intermediary/best_model.zip")
@@ -104,12 +104,7 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
                          features_extractor_class=BulletTrackCombinedExtractor,  # TransformerExtractor
                          features_extractor_kwargs=features_extractor_kwargs)
 
-    observation_type = DEFAULT_OBS
-    run_description = "_".join([
-        f"{description}-{str(observation_type).split('.')[1]}",
-        f"Action-{str(DEFAULT_ACT).split('.')[1]}",
-        f"LR={MAX_LR}"
-    ])
+    run_description = "_".join([obs_str, action_str, description])
 
     if rl_algo == "PPO":
         model = PPO(BulletTrackPolicy,
@@ -149,7 +144,8 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
         model.policy.load_from_policy(old_model.policy)
 
     #### Target cumulative rewards (problem-dependent) ##########
-    target_reward = episode_len * eval_env.CTRL_FREQ * 0.95
+    max_reward_per_step = 1.5
+    target_reward = max_reward_per_step * episode_len * eval_env.CTRL_FREQ * 0.95
     callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=target_reward, verbose=1)
     eval_callback = EvalCallback(eval_env,
                                  callback_on_new_best=callback_on_best,
