@@ -1,13 +1,11 @@
-import os
 import time
 import argparse
 import numpy as np
 from pathlib import Path
 
 from stable_baselines3 import PPO, DQN
-from stable_baselines3.common.policies import ActorCriticPolicy, NatureCNN
+from stable_baselines3.common.policies import NatureCNN
 from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.vec_env import VecFrameStack
 from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnRewardThreshold
 from stable_baselines3.common.evaluation import evaluate_policy
 
@@ -16,23 +14,23 @@ from gym_pybullet_drones.envs.TrackAviary import TrackAviary
 from gym_pybullet_drones.utils.utils import sync, str2bool
 from gym_pybullet_drones.utils.enums import ObservationType, ActionType, DepthType
 
-from gym_pybullet_drones.bullet_track.bullet_track_extractor import BulletTrackCombinedExtractor, TransformerExtractor, BulletTrackYOLO
+from gym_pybullet_drones.bullet_track.bullet_track_extractor import BulletTrackCombinedExtractor, BulletTrackEfficientNet, TransformerExtractor, BulletTrackYOLO
 from gym_pybullet_drones.bullet_track.bullet_track_policy import BulletTrackPolicy
 
 DEFAULT_DEPTH_TYPE = DepthType.IMAGE
 DEFAULT_GUI = True
 DEFAULT_RECORD_VIDEO = True
-DEFAULT_OUTPUT_FOLDER = Path('final_results')
+DEFAULT_OUTPUT_FOLDER = Path('experiment')
 DEFAULT_SAVE_EVAL_IMAGE = True
 DEFAULT_RL_ALGO = "PPO"
-DEFAULT_PRETRAINED_PATH = Path("results/save-latest-PPO-super-True-NatureCNN-with-intermediary/best_model.zip")
+DEFAULT_PRETRAINED_PATH = Path()
 DEFAULT_EPISODE_LEN = 8  # usually 8
 MAX_LR = 0.0005
-DEFAULT_IMAGE_EXTRACTOR = BulletTrackYOLO
+DEFAULT_IMAGE_EXTRACTOR = BulletTrackEfficientNet
 
-DEFAULT_OBS = ObservationType.RGB
-DEFAULT_SUPER_MODE = False
-DEFAULT_ACT = ActionType.RPM  # 'rpm' or 'pid' or 'vel' or 'one_d_rpm' or 'one_d_pid'
+DEFAULT_OBS = ObservationType.MULTI
+DEFAULT_SUPER_MODE = True  # If True, rpos to target will be in the observation space
+DEFAULT_ACT = ActionType.RPM
 
 
 def piecewise_lr_schedule(remaining_percent: float) -> float:  # designed for 400k
@@ -96,7 +94,7 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
 
     ### Train the model #######################################
     net_arch = [256, 256, 256]
-    feature_dims = 0 if image_feature_extractor == BulletTrackYOLO else 32
+    feature_dims = 0 if image_feature_extractor == BulletTrackYOLO else 9
     features_extractor_kwargs = dict(image_feature_extractor=image_feature_extractor,
                                      cnn_output_dim=3,
                                      feature_dims=feature_dims)
@@ -121,22 +119,6 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
                     max_grad_norm=10.0,
                     policy_kwargs=policy_kwargs)
         model_cls = PPO
-    elif rl_algo == "DQN":
-        model = DQN(BulletTrackPolicy,
-                    train_env,
-                    learning_rate=constant_lr_schedule,
-                    buffer_size=1e6,
-                    train_freq=64,
-                    batch_size=4096,
-                    gamma=0.95,
-                    max_grad_norm=15,
-                    gradient_steps=2048,
-                    target_update_interval=4,
-                    tau=0.005,
-                    tensorboard_log=str(output_folder / 'tensorboard'),
-                    verbose=1,
-                    seed=10281991)
-        model_cls = DQN
     else:
         raise ValueError(f"Unsupported rl algo: {rl_algo}")
 

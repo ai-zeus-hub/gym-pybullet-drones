@@ -83,30 +83,6 @@ def isolated_forward(x):
     return model.predict(bgr_tensor, conf=0.35, imgsz=64, device=0, verbose=False)
 
 
-# class BulletTrackCNN(BaseFeaturesExtractor):
-#     def __init__(self,
-#                  observation_space: gym.Space,
-#                  features_dim: int = 3,
-#                  normalized_image: bool = False,
-#                  pretrained_weights: Path = Path.cwd() /
-#                                             "bullet-track-yolov8-s-drone-detector-single-cls" /
-#                                             "train" /
-#                                             "weights" /
-#                                             "best.pt"):
-#         super().__init__(observation_space, features_dim)
-#         self.observation_space = observation_space
-#         self.input_size = observation_space.shape  # Extracting the input size from the observation space
-#         self.normalized_image = normalized_image
-#         self.model = UntrainableYOLO(pretrained_weights)
-
-#     def forward(self, x: th.Tensor) -> th.Tensor:
-#         images = x[:, 0:3, :, :]
-#         depths = x[:, 3, :, :]
-#         with th.no_grad():
-#             # result = self.model.predict(images, imgsz=self.input_size[1:])
-#             result = isolated_forward(images)  # todo: ajr -- ok? , device=0 -- verify using cuda:0 later
-#         return result_to_output(result, depths)
-
 class BulletTrackYOLO(BaseFeaturesExtractor):
     def __init__(self,
                  observation_space: gym.Space,
@@ -122,22 +98,49 @@ class BulletTrackYOLO(BaseFeaturesExtractor):
         self.input_size = observation_space.shape  # Extracting the input size from the observation space
         self.normalized_image = normalized_image
         self.model = UntrainableYOLO(pretrained_weights)
-        # if pretrained_weights is None:
-        #     self.model = models.efficientnet_b0(models.EfficientNet_B0_Weights.IMAGENET1K_V1).features
-        # else:
-        #     raise RuntimeError("Add support: todo")
         
         
     def forward(self, x: th.Tensor) -> th.Tensor:
-        # out = self.model(x)
-        # return out
         images = x[:, 0:3, :, :]
         depths = x[:, 3, :, :]
         with th.no_grad():
-            # result = self.model.predict(images, imgsz=self.input_size[1:])
-            result = isolated_forward(images)  # todo: ajr -- ok? , device=0 -- verify using cuda:0 later
+            result = isolated_forward(images)
         return result_to_output(result, depths)
 
+
+class BulletTrackEfficientNet(BaseFeaturesExtractor):
+    def __init__(self,
+                 observation_space: gym.Space,
+                 features_dim: int = 12,
+                 normalized_image: bool = False,
+                 pretrained_weights: "Path | None" = None):
+        super().__init__(observation_space, features_dim)
+        self.observation_space = observation_space
+        self.input_size = observation_space.shape
+
+        # Initialize EfficientNet with the desired pretrained weights
+        if pretrained_weights is None:
+            self.backbone = models.efficientnet_b0(models.EfficientNet_B0_Weights.IMAGENET1K_V1)
+            # self.model = models.efficientnet_b0(models.EfficientNet_B0_Weights.IMAGENET1K_V1).features
+        else:
+            raise RuntimeError("Add support: todo")
+        # Adjust first convolutional layer to accept 4-channel input
+        original_conv = self.backbone.features[0][0]
+        self.backbone.features[0][0] = nn.Conv2d(self.input_size[0],
+                                                 original_conv.out_channels,
+                                                 kernel_size=original_conv.kernel_size,
+                                                 stride=original_conv.stride,
+                                                 padding=original_conv.padding,
+                                                 bias=original_conv.bias)
+        if pretrained_weights is not None:
+            with th.no_grad():
+                self.backbone.features[0][0].weight[:, :3] = original_conv.weight
+                # Initialize the new channel to 0
+                self.backbone.features[0][0].weight[:, 3] = 0
+        self.backbone.classifier[1] = nn.Linear(self.backbone.classifier[1].in_features, features_dim)
+
+    def forward(self, x: th.Tensor) -> th.Tensor:
+        return self.backbone(x)
 
 
 class BulletTrackCombinedExtractor(BaseFeaturesExtractor):
