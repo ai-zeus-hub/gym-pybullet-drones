@@ -16,18 +16,19 @@ from gym_pybullet_drones.envs.TrackAviary import TrackAviary
 from gym_pybullet_drones.utils.utils import sync, str2bool
 from gym_pybullet_drones.utils.enums import ObservationType, ActionType, DepthType
 
-from gym_pybullet_drones.bullet_track.bullet_track_extractor import BulletTrackCombinedExtractor, TransformerExtractor, BulletTrackCNN
+from gym_pybullet_drones.bullet_track.bullet_track_extractor import BulletTrackCombinedExtractor, TransformerExtractor, BulletTrackYOLO
 from gym_pybullet_drones.bullet_track.bullet_track_policy import BulletTrackPolicy
 
 DEFAULT_DEPTH_TYPE = DepthType.IMAGE
 DEFAULT_GUI = True
 DEFAULT_RECORD_VIDEO = True
-DEFAULT_OUTPUT_FOLDER = Path('final_results_collision')
+DEFAULT_OUTPUT_FOLDER = Path('final_results')
 DEFAULT_SAVE_EVAL_IMAGE = True
 DEFAULT_RL_ALGO = "PPO"
 DEFAULT_PRETRAINED_PATH = Path("results/save-latest-PPO-super-True-NatureCNN-with-intermediary/best_model.zip")
 DEFAULT_EPISODE_LEN = 8  # usually 8
 MAX_LR = 0.0005
+DEFAULT_IMAGE_EXTRACTOR = BulletTrackYOLO
 
 DEFAULT_OBS = ObservationType.RGB
 DEFAULT_SUPER_MODE = False
@@ -68,8 +69,8 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
         raise ValueError
     if super_mode:
         obs_str += "-RPOS"
-    image_feature_extractor = NatureCNN
-    description = "End-to-End-NatureCNN"
+    image_feature_extractor = DEFAULT_IMAGE_EXTRACTOR
+    description = f"{image_feature_extractor.__name__}"
     filename = Path(output_folder) / obs_str / action_str / description
 
     if not filename.exists():
@@ -95,9 +96,10 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
 
     ### Train the model #######################################
     net_arch = [256, 256, 256]
+    feature_dims = 0 if image_feature_extractor == BulletTrackYOLO else 32
     features_extractor_kwargs = dict(image_feature_extractor=image_feature_extractor,
                                      cnn_output_dim=3,
-                                     feature_dims=32)
+                                     feature_dims=feature_dims)
     # features_extractor_kwargs = dict()
     policy_kwargs = dict(net_arch=net_arch,
                          share_features_extractor=True,

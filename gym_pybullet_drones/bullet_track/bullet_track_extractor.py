@@ -80,7 +80,7 @@ def isolated_forward(x):
     if model is None:
         model = UntrainableYOLO("bullet-track-yolov8-s-drone-detector-single-cls/train/weights/best.pt")
     bgr_tensor = x[:, [2, 1, 0], :, :]
-    return model.predict(bgr_tensor, conf=0.35, imgsz=64, verbose=False)
+    return model.predict(bgr_tensor, conf=0.35, imgsz=64, device=0, verbose=False)
 
 
 # class BulletTrackCNN(BaseFeaturesExtractor):
@@ -107,37 +107,36 @@ def isolated_forward(x):
 #             result = isolated_forward(images)  # todo: ajr -- ok? , device=0 -- verify using cuda:0 later
 #         return result_to_output(result, depths)
 
-class BulletTrackCNN(BaseFeaturesExtractor):
+class BulletTrackYOLO(BaseFeaturesExtractor):
     def __init__(self,
                  observation_space: gym.Space,
                  features_dim: int = 3,
                  normalized_image: bool = False,
-                 pretrained_weights: Path | None = None): 
-                                            # Path.cwd() /
-                                            # "bullet-track-yolov8-s-drone-detector-single-cls" /
-                                            # "train" /
-                                            # "weights" /
-                                            # "best.pt"):
+                 pretrained_weights: Path | None = Path.cwd() /
+                                            "bullet-track-yolov8-s-drone-detector-single-cls" /
+                                            "train" /
+                                            "weights" /
+                                            "best.pt"):
         super().__init__(observation_space, features_dim)
         self.observation_space = observation_space
         self.input_size = observation_space.shape  # Extracting the input size from the observation space
         self.normalized_image = normalized_image
-        # self.model = UntrainableYOLO(pretrained_weights)
-        if pretrained_weights is None:
-            self.model = models.efficientnet_b0(models.EfficientNet_B0_Weights.IMAGENET1K_V1).features
-        else:
-            raise RuntimeError("Add support: todo")
+        self.model = UntrainableYOLO(pretrained_weights)
+        # if pretrained_weights is None:
+        #     self.model = models.efficientnet_b0(models.EfficientNet_B0_Weights.IMAGENET1K_V1).features
+        # else:
+        #     raise RuntimeError("Add support: todo")
         
         
     def forward(self, x: th.Tensor) -> th.Tensor:
-        out = self.model(x)
-        return out
-        # images = x[:, 0:3, :, :]
-        # depths = x[:, 3, :, :]
-        # with th.no_grad():
-        #     # result = self.model.predict(images, imgsz=self.input_size[1:])
-        #     result = isolated_forward(images)  # todo: ajr -- ok? , device=0 -- verify using cuda:0 later
-        # return result_to_output(result, depths)
+        # out = self.model(x)
+        # return out
+        images = x[:, 0:3, :, :]
+        depths = x[:, 3, :, :]
+        with th.no_grad():
+            # result = self.model.predict(images, imgsz=self.input_size[1:])
+            result = isolated_forward(images)  # todo: ajr -- ok? , device=0 -- verify using cuda:0 later
+        return result_to_output(result, depths)
 
 
 
@@ -147,10 +146,9 @@ class BulletTrackCombinedExtractor(BaseFeaturesExtractor):
         observation_space: spaces.Dict,
         cnn_output_dim: int = 256,
         normalized_image: bool = False,
-        image_feature_extractor = BulletTrackCNN,
+        image_feature_extractor = BulletTrackYOLO,
         feature_dims: int = 0
     ) -> None:
-        # TODO we do not know features-dim here before going over all the items, so put something there. This is dirty!
         super().__init__(observation_space, features_dim=1)
 
         extractors: Dict[str, nn.Module] = {}
@@ -197,7 +195,7 @@ class TransformerExtractor(BaseFeaturesExtractor):
         total_concat_size = 0
         for key, subspace in observation_space.spaces.items():
             if is_image_space(subspace, normalized_image=normalized_image):
-                extractors[key] = BulletTrackCNN(subspace, features_dim=3, normalized_image=normalized_image)
+                extractors[key] = BulletTrackYOLO(subspace, features_dim=3, normalized_image=normalized_image)
                 total_concat_size += 3
             else:
                 extractors[key] = nn.Flatten()
