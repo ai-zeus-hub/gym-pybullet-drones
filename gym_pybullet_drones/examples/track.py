@@ -20,7 +20,7 @@ from gym_pybullet_drones.bullet_track.bullet_track_policy import BulletTrackPoli
 DEFAULT_DEPTH_TYPE = DepthType.IMAGE
 DEFAULT_GUI = True
 DEFAULT_RECORD_VIDEO = True
-DEFAULT_OUTPUT_FOLDER = Path('experiment')
+DEFAULT_OUTPUT_FOLDER = Path('final_results')
 DEFAULT_SAVE_EVAL_IMAGE = True
 DEFAULT_RL_ALGO = "PPO"
 DEFAULT_PRETRAINED_PATH = Path()
@@ -94,9 +94,14 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
 
     ### Train the model #######################################
     net_arch = [256, 256, 256]
-    feature_dims = 0 if image_feature_extractor == BulletTrackYOLO else 9
+    # 0 for flatten after CNN, 1+ for linear. It's purpose is to
+    # decouple the cnn and MLP network, for easier loading
+    feature_dims = 0
+    # This is directly after the CNN and needs to stay the same between
+    # save/load (if starting with initial weights)
+    cnn_features = 128
     features_extractor_kwargs = dict(image_feature_extractor=image_feature_extractor,
-                                     cnn_output_dim=3,
+                                     cnn_output_dim=cnn_features,
                                      feature_dims=feature_dims)
     # features_extractor_kwargs = dict()
     policy_kwargs = dict(net_arch=net_arch,
