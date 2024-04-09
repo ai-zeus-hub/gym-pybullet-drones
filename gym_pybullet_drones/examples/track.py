@@ -14,7 +14,7 @@ from gym_pybullet_drones.envs.TrackAviary import TrackAviary
 from gym_pybullet_drones.utils.utils import sync, str2bool
 from gym_pybullet_drones.utils.enums import ObservationType, ActionType, DepthType
 
-from gym_pybullet_drones.bullet_track.bullet_track_extractor import BulletTrackCombinedExtractor, BulletTrackEfficientNet, TransformerExtractor, BulletTrackYOLO
+from gym_pybullet_drones.bullet_track.bullet_track_extractor import BulletTrackCombinedExtractor, BulletTrackEfficientNet, TransformerExtractor, BulletTrackYOLO, BulletTrackCombinedExtractor
 from gym_pybullet_drones.bullet_track.bullet_track_policy import BulletTrackPolicy
 
 DEFAULT_DEPTH_TYPE = DepthType.IMAGE
@@ -26,10 +26,12 @@ DEFAULT_RL_ALGO = "PPO"
 DEFAULT_PRETRAINED_PATH = Path()
 DEFAULT_EPISODE_LEN = 8  # usually 8
 MAX_LR = 0.0005
-DEFAULT_IMAGE_EXTRACTOR = BulletTrackEfficientNet
+DEFAULT_IMAGE_EXTRACTOR = NatureCNN
+DEFAULT_FEATURE_EXTRACTOR = TransformerExtractor
+DEAFULT_CNN_DIMS = 3
 
-DEFAULT_OBS = ObservationType.MULTI
-DEFAULT_SUPER_MODE = True  # If True, rpos to target will be in the observation space
+DEFAULT_OBS = ObservationType.RGB
+DEFAULT_SUPER_MODE = False  # If True, rpos to target will be in the observation space
 DEFAULT_ACT = ActionType.RPM
 
 
@@ -69,6 +71,8 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
         obs_str += "-RPOS"
     image_feature_extractor = DEFAULT_IMAGE_EXTRACTOR
     description = f"{image_feature_extractor.__name__}"
+    if DEFAULT_FEATURE_EXTRACTOR != BulletTrackCombinedExtractor:
+        description += f"-{DEFAULT_FEATURE_EXTRACTOR.__name__}"
     filename = Path(output_folder) / obs_str / action_str / description
 
     if not filename.exists():
@@ -99,14 +103,14 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
     feature_dims = 0
     # This is directly after the CNN and needs to stay the same between
     # save/load (if starting with initial weights)
-    cnn_features = 128
+    cnn_features = DEAFULT_CNN_DIMS
     features_extractor_kwargs = dict(image_feature_extractor=image_feature_extractor,
                                      cnn_output_dim=cnn_features,
                                      feature_dims=feature_dims)
     # features_extractor_kwargs = dict()
     policy_kwargs = dict(net_arch=net_arch,
                          share_features_extractor=True,
-                         features_extractor_class=BulletTrackCombinedExtractor,  # TransformerExtractor
+                         features_extractor_class=DEFAULT_FEATURE_EXTRACTOR,
                          features_extractor_kwargs=features_extractor_kwargs)
 
     run_description = "_".join([obs_str, action_str, description])
