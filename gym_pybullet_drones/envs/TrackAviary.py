@@ -103,7 +103,7 @@ class TrackAviary(BaseRLAviary):
                  episode_len: int = 8,
                  distance_reward_scale: float = 1.2,
                  depth_type: DepthType = DepthType.IMAGE,
-                 max_distance: float = 2.,
+                 max_distance: float = 1.,
                  include_rpos_in_obs: bool = False,
                  static_idx: int | None = None,
                  ):
@@ -320,7 +320,7 @@ class TrackAviary(BaseRLAviary):
         state = self._getDroneStateVector(0)
         target_pos, target_rpy = self._target_waypoint()
         total_dist, x_dist, y_dist, z_dist = self._distance_from_next_target(target_pos)
-        if ((total_dist > self.max_distance) or # Terminate when the drone is too far away
+        if ((total_dist > self.max_distance) or  # Terminate when the drone is too far away
             # (z_dist > .2) or
             (abs(state[7]) > .4) or
             (abs(state[8]) > .4)     # Terminate when the drone is too tilted

@@ -28,7 +28,7 @@ DEFAULT_EPISODE_LEN = 8  # usually 8
 MAX_LR = 0.0005
 DEFAULT_IMAGE_EXTRACTOR = NatureCNN
 DEFAULT_FEATURE_EXTRACTOR = TransformerExtractor
-DEAFULT_CNN_DIMS = 3
+DEFAULT_CNN_DIMS = 3
 
 DEFAULT_OBS = ObservationType.RGB
 DEFAULT_SUPER_MODE = False  # If True, rpos to target will be in the observation space
@@ -57,6 +57,10 @@ def constant_lr_schedule(remaining_percent: float) -> float:
     return MAX_LR
 
 
+# TODO: parameterize number environments
+# TODO: rename script
+# TODO: parameterize obstacles
+# TODO: parameterize other config options
 def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAULT_GUI,
         save_eval_image=DEFAULT_SAVE_EVAL_IMAGE, record_video=DEFAULT_RECORD_VIDEO,
         pretrained=DEFAULT_PRETRAINED_PATH, super_mode=DEFAULT_SUPER_MODE, episode_len=DEFAULT_EPISODE_LEN):
@@ -84,8 +88,7 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
                                              episode_len=episode_len,
                                              include_rpos_in_obs=super_mode,
                                              output_folder=filename),
-                             n_envs=1,
-                             seed=0)
+                             n_envs=2)
     eval_env = TrackAviary(obs=DEFAULT_OBS,
                            act=DEFAULT_ACT,
                            episode_len=episode_len,
@@ -103,7 +106,7 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
     feature_dims = 0
     # This is directly after the CNN and needs to stay the same between
     # save/load (if starting with initial weights)
-    cnn_features = DEAFULT_CNN_DIMS
+    cnn_features = DEFAULT_CNN_DIMS
     features_extractor_kwargs = dict(image_feature_extractor=image_feature_extractor,
                                      cnn_output_dim=cnn_features,
                                      feature_dims=feature_dims)
