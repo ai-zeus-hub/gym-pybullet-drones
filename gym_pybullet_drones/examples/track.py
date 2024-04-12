@@ -26,7 +26,7 @@ DEFAULT_RL_ALGO = "PPO"
 DEFAULT_PRETRAINED_PATH = Path()
 DEFAULT_EPISODE_LEN = 8  # usually 8
 MAX_LR = 0.0005
-DEFAULT_IMAGE_EXTRACTOR = BulletTrackEfficientNet
+DEFAULT_IMAGE_EXTRACTOR = NatureCNN
 
 DEFAULT_OBS = ObservationType.MULTI
 DEFAULT_SUPER_MODE = True  # If True, rpos to target will be in the observation space
@@ -55,6 +55,10 @@ def constant_lr_schedule(remaining_percent: float) -> float:
     return MAX_LR
 
 
+# TODO: parameterize number environments
+# TODO: rename script
+# TODO: parameterize obstacles
+# TODO: parameterize other config options
 def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAULT_GUI,
         save_eval_image=DEFAULT_SAVE_EVAL_IMAGE, record_video=DEFAULT_RECORD_VIDEO,
         pretrained=DEFAULT_PRETRAINED_PATH, super_mode=DEFAULT_SUPER_MODE, episode_len=DEFAULT_EPISODE_LEN):
@@ -80,8 +84,7 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
                                              episode_len=episode_len,
                                              include_rpos_in_obs=super_mode,
                                              output_folder=filename),
-                             n_envs=1,
-                             seed=0)
+                             n_envs=2)
     eval_env = TrackAviary(obs=DEFAULT_OBS,
                            act=DEFAULT_ACT,
                            episode_len=episode_len,
