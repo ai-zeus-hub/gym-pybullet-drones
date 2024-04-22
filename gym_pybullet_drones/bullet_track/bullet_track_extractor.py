@@ -7,7 +7,9 @@ import torch as th
 from torch import nn
 from torch.nn import TransformerEncoder, TransformerEncoderLayer, Identity
 from torchvision import models, transforms
+from typing import List
 from torchvision.models.feature_extraction import create_feature_extractor
+import numpy as np
 
 from gymnasium import spaces
 import gymnasium as gym
@@ -19,6 +21,63 @@ from pathlib import Path
 from stable_baselines3.common.preprocessing import is_image_space, get_flattened_obs_dim
 from stable_baselines3.common.type_aliases import TensorDict
 
+
+def assign_clusters(data: List[int], eps: float, min_pts: int) -> List[int]:
+    cluster_labels: List[int] = [-1] * len(data)  # All points initially marked as unprocessed/noise
+    cluster_id: int = 0
+
+    def neighbors(point_idx: int) -> List[int]:
+        """ Return the indices of all points within 'eps' of 'point_idx' """
+        return [i for i in range(len(data)) if abs(data[point_idx] - data[i]) <= eps]
+
+    for point_idx in range(len(data)):
+        if cluster_labels[point_idx] != -1:
+            continue  # Already processed or assigned to a cluster
+
+        nearby_points: List[int] = neighbors(point_idx)
+        if len(nearby_points) < min_pts:
+            cluster_labels[point_idx] = -1  # Mark as noise if not enough points in neighborhood
+        else:
+            # Start a new cluster
+            cluster_labels[point_idx] = cluster_id
+            i: int = 0
+            while i < len(nearby_points):
+                point: int = nearby_points[i]
+                if cluster_labels[point] == -1:
+                    cluster_labels[point] = cluster_id  # Change from noise to part of the cluster
+                    point_neighbors: List[int] = neighbors(point)
+                    if len(point_neighbors) >= min_pts:
+                        # Merge density-reachable points into the seed set
+                        nearby_points = list(set(nearby_points + point_neighbors))
+                i += 1
+            cluster_id += 1  # Prepare next cluster id
+
+    return cluster_labels
+
+
+def cluster_then_mean(data: List[int], eps: float = 0.1, min_pts: int = 5) -> float:
+    cluster_labels = assign_clusters(data, eps, min_pts)
+
+    # Count the frequency of each cluster label (excluding noise)
+    cluster_sizes = {}
+    for label in cluster_labels:
+        if label != -1:
+            if label in cluster_sizes:
+                cluster_sizes[label] += 1
+            else:
+                cluster_sizes[label] = 1
+
+    if len(cluster_sizes) == 0:
+        return 0.
+
+    # Find the cluster ID with the maximum size
+    largest_cluster_id = max(cluster_sizes, key=cluster_sizes.get)
+
+    # Collect all points that belong to the largest cluster
+    largest_cluster = [data[i] for i in range(len(data)) if cluster_labels[i] == largest_cluster_id]
+
+    # Calculate the mean of the largest cluster
+    return np.mean(largest_cluster)
 
 def scale_point(point_0_1):
     return (point_0_1 * 2) - 1
