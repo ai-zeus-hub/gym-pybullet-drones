@@ -44,7 +44,7 @@ def circle(control_freq_hz, period=6, height=1.0, radius=0.3):
     return init_xyzs, init_rpys, waypoints
 
 
-def polygon_trajectory(control_freq_hz, period=6, height=1.0, radius=1.0, n_sides=3):
+def polygon_trajectory(control_freq_hz, period=6, height=1.0, radius=1.0, n_sides=3, jitter_mu=0., jitter_std=0.1):
     """
     Generates waypoints along a polygon path with n sides, starting at [0, 0, height].
 
@@ -85,6 +85,9 @@ def polygon_trajectory(control_freq_hz, period=6, height=1.0, radius=1.0, n_side
     neg_wp_0 = -waypoints[0, :2]
     for i in range(len(waypoints)):
         waypoints[i, :2] = waypoints[i, :2] + neg_wp_0
+
+    noise = np.random.normal(jitter_mu, jitter_std, waypoints.shape)
+    waypoints = waypoints + noise
     return waypoints[0], init_rpys, waypoints
 
 
