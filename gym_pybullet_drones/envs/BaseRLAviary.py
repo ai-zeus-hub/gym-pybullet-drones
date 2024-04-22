@@ -25,7 +25,10 @@ class BaseRLAviary(BaseAviary):
                  gui=False,
                  record=False,
                  obs: ObservationType=ObservationType.KIN,
-                 act: ActionType=ActionType.RPM
+                 act: ActionType=ActionType.RPM,
+                 external_agents=None,
+                 action_buffer_size=None,
+                 output_folder='results'
                  ):
         """Initialization of a generic single and multi-agent RL environment.
 
@@ -59,16 +62,17 @@ class BaseRLAviary(BaseAviary):
         obs : ObservationType, optional
             The type of observation space (kinematic information or vision)
         act : ActionType, optional
-            The type of action space (1 or 3D; RPMS, thurst and torques, waypoint or velocity with PID control; etc.)
+            The type of action space (1 or 3D; RPMS, thrust and torques, waypoint or velocity with PID control; etc.)
 
         """
         #### Create a buffer for the last .5 sec of actions ########
-        self.ACTION_BUFFER_SIZE = int(ctrl_freq//2)
+        self.ACTION_BUFFER_SIZE = action_buffer_size if action_buffer_size is not None else int(ctrl_freq//2)
         self.action_buffer = deque(maxlen=self.ACTION_BUFFER_SIZE)
         ####
-        vision_attributes = True if obs == ObservationType.RGB else False
+        vision_attributes = False if obs == ObservationType.KIN else True
         self.OBS_TYPE = obs
         self.ACT_TYPE = act
+
         #### Create integrated controllers #########################
         if act in [ActionType.PID, ActionType.VEL, ActionType.ONE_D_PID]:
             os.environ['KMP_DUPLICATE_LIB_OK']='True'
@@ -86,9 +90,11 @@ class BaseRLAviary(BaseAviary):
                          ctrl_freq=ctrl_freq,
                          gui=gui,
                          record=record, 
-                         obstacles=True, # Add obstacles for RGB observations and/or FlyThruGate
-                         user_debug_gui=False, # Remove of RPM sliders from all single agent learning aviaries
+                         obstacles=True,  # Add obstacles for RGB observations and/or FlyThruGate
+                         user_debug_gui=False,  # Remove of RPM sliders from all single agent learning aviaries
                          vision_attributes=vision_attributes,
+                         external_agents=external_agents,
+                         output_folder=output_folder
                          )
         #### Set a limit on the maximum target speed ###############
         if act == ActionType.VEL:
@@ -147,12 +153,12 @@ class BaseRLAviary(BaseAviary):
         else:
             print("[ERROR] in BaseRLAviary._actionSpace()")
             exit()
-        act_lower_bound = np.array([-1*np.ones(size) for i in range(self.NUM_DRONES)])
-        act_upper_bound = np.array([+1*np.ones(size) for i in range(self.NUM_DRONES)])
-        #
+        
         for i in range(self.ACTION_BUFFER_SIZE):
             self.action_buffer.append(np.zeros((self.NUM_DRONES,size)))
-        #
+
+        act_lower_bound = np.array([-1*np.ones(size) for i in range(self.NUM_DRONES)])
+        act_upper_bound = np.array([+1*np.ones(size) for i in range(self.NUM_DRONES)])
         return spaces.Box(low=act_lower_bound, high=act_upper_bound, dtype=np.float32)
 
     ################################################################################
@@ -311,6 +317,11 @@ class BaseRLAviary(BaseAviary):
             for i in range(self.NUM_DRONES):
                 #obs = self._clipAndNormalizeState(self._getDroneStateVector(i))
                 obs = self._getDroneStateVector(i)
+                # For each drone, obs12 will be:
+                #   0-2: x, y, z
+                #   3-5: roll, pitch, yaw
+                #   6-8: vx, vy, vz
+                #  9-11: wx, wy, wz
                 obs_12[i, :] = np.hstack([obs[0:3], obs[7:10], obs[10:13], obs[13:16]]).reshape(12,)
             ret = np.array([obs_12[i, :] for i in range(self.NUM_DRONES)]).astype('float32')
             #### Add action buffer to observation #######################

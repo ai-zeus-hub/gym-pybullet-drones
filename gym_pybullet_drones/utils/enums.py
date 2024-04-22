@@ -44,5 +44,11 @@ class ActionType(Enum):
 
 class ObservationType(Enum):
     """Observation type enumeration class."""
-    KIN = "kin"     # Kinematic information (pose, linear and angular velocities)
-    RGB = "rgb"     # RGB camera capture in each drone's POV
+    KIN = "kin"      # Kinematic information (pose, linear and angular velocities)
+    RGB = "rgb"      # RGB camera capture in each drone's POV
+    MULTI = "multi"  # Kinematic and RGB information
+
+class DepthType(Enum):
+    IMAGE = "image"
+    DOWN_SAMPLED = "down_sampled"
+    NONE = "none"

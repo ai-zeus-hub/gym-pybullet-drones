@@ -11,17 +11,28 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = ">=3.10, <3.13"
 numpy = "^1.24"
 scipy = "^1.10"
 transforms3d = "^0.4.1"
 matplotlib = "^3.7"
 pytest = "^7.3"
-pybullet = "^3.2.5"
+pybullet = "3.2.6"
 gymnasium = "^0.28"
 stable-baselines3 = "^2.0.0"
+sb3-contrib = "^2.2.1"
+imageio = "^2.34.0"
+ultralytics = "^8.1.31"
+tensorboard = "^2.16.2"
+torch = {version = "^2.2.1+cu121", platform = "windows", source = "torch_cuda12_1"}
+torchvision = {version = "^0.17.1+cu121", platform = "windows", source = "torch_cuda12_1"}
 
 [tool.poetry.dev-dependencies]
+
+[[tool.poetry.source]]
+name = "torch_cuda12_1"
+url = "https://download.pytorch.org/whl/cu121"
+priority = "explicit"
 
 [build-system]
 requires = ["poetry-core"]

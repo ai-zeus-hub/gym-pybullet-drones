@@ -1,0 +1,1262 @@
+<?xml version="1.0" ?>
+<robot name="environment">
+
+        <link name="root">
+            <inertial>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <mass value="0"/>
+                <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+            </inertial>
+        </link>
+    
+        <link name="ground_plane">
+            <inertial>
+                <origin xyz="0 0 -0.05" rpy="0 0 0"/>
+                <mass value="0"/>
+                <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+            </inertial>
+            <collision>
+                <geometry>
+                    <box size="50 50 0.1"/>
+                </geometry>
+            </collision>
+            <visual>
+                <geometry>
+                    <box size="50 50 0.1"/>
+                </geometry>
+                <material name="ground_color">
+                    <color rgba="0.3 0.7 0.3 1.0"/> <!-- Greenish color -->
+                </material>
+            </visual>
+        </link>
+    
+        <joint name="joint_ground_plane" type="fixed">
+            <parent link="root"/>
+            <child link="ground_plane"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="terrain">
+            <inertial>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <mass value="0"/>
+                <inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/>
+            </inertial>
+            <collision>
+                <geometry>
+                    <mesh filename="terrain.obj"/>
+                </geometry>
+            </collision>
+            <visual>
+                <geometry>
+                    <mesh filename="terrain.obj"/>
+                </geometry>
+            </visual>
+        </link>
+    
+        <joint name="joint_terrain" type="fixed">
+            <parent link="root"/>
+            <child link="terrain"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_0">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 0.5996430116396985" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.199286023279397" radius="0.3406641067586877"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 0.5996430116396985" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.199286023279397" radius="0.3406641067586877"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 1.8806142367967724" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.6813282135173754"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 1.8806142367967724" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.6813282135173754"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.280971225157074" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.5802601681684728" ixy="0" ixz="0" iyy="0.5802601681684728" iyz="0" izz="1.1605203363369456"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_0" type="fixed">
+            <parent link="root"/>
+            <child link="tree_0"/>
+            <origin xyz="11.948025421138318 11.519408089252302 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_1">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 1.0813332220270095" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.162666444054019" radius="0.3407469483732677"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 1.0813332220270095" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.162666444054019" radius="0.3407469483732677"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 2.8441603408005545" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.6814938967465354"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 2.8441603408005545" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.6814938967465354"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.762827118773545" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.5805424141284719" ixy="0" ixz="0" iyy="0.5805424141284719" iyz="0" izz="1.1610848282569437"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_1" type="fixed">
+            <parent link="root"/>
+            <child link="tree_1"/>
+            <origin xyz="-9.934047274985636 -18.90864924617136 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_2">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 0.532341764134034" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.064683528268068" radius="0.2854548021140997"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 0.532341764134034" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.064683528268068" radius="0.2854548021140997"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 1.6355931324962674" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.5709096042281994"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 1.6355931324962674" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.5709096042281994"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.1032513683622334" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.4074222202499991" ixy="0" ixz="0" iyy="0.4074222202499991" iyz="0" izz="0.8148444404999982"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_2" type="fixed">
+            <parent link="root"/>
+            <child link="tree_2"/>
+            <origin xyz="-0.7882544350234717 -12.517028062190233 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_3">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 0.9814742911687262" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.9629485823374524" radius="0.3323499947751118"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 0.9814742911687262" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.9629485823374524" radius="0.3323499947751118"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 2.627648571887676" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.6646999895502236"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 2.627648571887676" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.6646999895502236"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.6461742807189497" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.5522825951350842" ixy="0" ixz="0" iyy="0.5522825951350842" iyz="0" izz="1.1045651902701683"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_3" type="fixed">
+            <parent link="root"/>
+            <child link="tree_3"/>
+            <origin xyz="12.16579089381188 21.132534835362172 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_4">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 1.1878052840056328" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.3756105680112656" radius="0.28998131001357164"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 1.1878052840056328" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.3756105680112656" radius="0.28998131001357164"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 2.955573188038409" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.5799626200271433"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 2.955573188038409" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.5799626200271433"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.767767904032776" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.42044580078593574" ixy="0" ixz="0" iyy="0.42044580078593574" iyz="0" izz="0.8408916015718715"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_4" type="fixed">
+            <parent link="root"/>
+            <child link="tree_4"/>
+            <origin xyz="-1.64311374934789 -14.805134412026561 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_5">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 1.304044293926479" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.608088587852958" radius="0.49888896950934386"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 1.304044293926479" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.608088587852958" radius="0.49888896950934386"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 3.6058665268716457" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.9977779390186877"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 3.6058665268716457" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.9977779390186877"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 2.3018222329451667" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="1.2444510194904752" ixy="0" ixz="0" iyy="1.2444510194904752" iyz="0" izz="2.4889020389809504"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_5" type="fixed">
+            <parent link="root"/>
+            <child link="tree_5"/>
+            <origin xyz="-15.379580251750852 -19.81397397872788 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_6">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 0.5029585238771646" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.005917047754329" radius="0.3192838313051147"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 0.5029585238771646" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.005917047754329" radius="0.3192838313051147"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 1.6444847103645586" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.6385676626102293"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 1.6444847103645586" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.6385676626102293"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.1415261864873938" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.5097108246643646" ixy="0" ixz="0" iyy="0.5097108246643646" iyz="0" izz="1.0194216493287291"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_6" type="fixed">
+            <parent link="root"/>
+            <child link="tree_6"/>
+            <origin xyz="18.488172834970058 22.957965662669473 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_7">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 1.3618291482598335" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.723658296519667" radius="0.27122111345131394"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 1.3618291482598335" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.723658296519667" radius="0.27122111345131394"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 3.2661005234222946" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.5424422269026279"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 3.2661005234222946" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.5424422269026279"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.9042713751624614" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.3678044619088525" ixy="0" ixz="0" iyy="0.3678044619088525" iyz="0" izz="0.735608923817705"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_7" type="fixed">
+            <parent link="root"/>
+            <child link="tree_7"/>
+            <origin xyz="-9.262282485212058 -6.410730488483445 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_8">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 0.7325827319463079" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.4651654638926157" radius="0.44234801459906303"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 0.7325827319463079" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.4651654638926157" radius="0.44234801459906303"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 2.3498614930907418" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.8846960291981261"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 2.3498614930907418" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.8846960291981261"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.617278761144434" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.9783588300986644" ixy="0" ixz="0" iyy="0.9783588300986644" iyz="0" izz="1.9567176601973288"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_8" type="fixed">
+            <parent link="root"/>
+            <child link="tree_8"/>
+            <origin xyz="14.42786742207472 23.15237298429563 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_9">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 1.385558665846725" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.77111733169345" radius="0.3672121962586579"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 1.385558665846725" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.77111733169345" radius="0.3672121962586579"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 3.5055417242107656" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.7344243925173158"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 3.5055417242107656" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.7344243925173158"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 2.1199830583640407" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.6742239854055355" ixy="0" ixz="0" iyy="0.6742239854055355" iyz="0" izz="1.348447970811071"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_9" type="fixed">
+            <parent link="root"/>
+            <child link="tree_9"/>
+            <origin xyz="1.3450031769885022 20.078627628362035 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_10">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 0.669023974494744" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.338047948989488" radius="0.21035322866546297"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 0.669023974494744" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.338047948989488" radius="0.21035322866546297"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 1.758754406320414" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.42070645733092593"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 1.758754406320414" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.42070645733092593"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.08973043182567" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.22124240404992276" ixy="0" ixz="0" iyy="0.22124240404992276" iyz="0" izz="0.44248480809984553"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_10" type="fixed">
+            <parent link="root"/>
+            <child link="tree_10"/>
+            <origin xyz="-6.564705197327424 18.27944410469876 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_11">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 1.2658278575819715" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.531655715163943" radius="0.3097343517320509"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 1.2658278575819715" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.531655715163943" radius="0.3097343517320509"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 3.1511244186280445" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.6194687034641018"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 3.1511244186280445" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.6194687034641018"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.8852965610460732" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.4796768432143691" ixy="0" ixz="0" iyy="0.4796768432143691" iyz="0" izz="0.9593536864287382"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_11" type="fixed">
+            <parent link="root"/>
+            <child link="tree_11"/>
+            <origin xyz="-3.212483425322567 -16.223820774403123 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_12">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 0.7054031535424218" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.4108063070848436" radius="0.33995619483044603"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 0.7054031535424218" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.4108063070848436" radius="0.33995619483044603"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 2.0907186967457356" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.6799123896608921"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 2.0907186967457356" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.6799123896608921"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.3853155432033137" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.5778510720179809" ixy="0" ixz="0" iyy="0.5778510720179809" iyz="0" izz="1.1557021440359618"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_12" type="fixed">
+            <parent link="root"/>
+            <child link="tree_12"/>
+            <origin xyz="1.7276829432076148 11.30918754576998 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_13">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 1.0969581210953998" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.1939162421907996" radius="0.31339804190625"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 1.0969581210953998" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.1939162421907996" radius="0.31339804190625"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 2.8207123260032994" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.6267960838125"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 2.8207123260032994" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.6267960838125"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.7237542049078998" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.4910916633533581" ixy="0" ixz="0" iyy="0.4910916633533581" iyz="0" izz="0.9821833267067162"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_13" type="fixed">
+            <parent link="root"/>
+            <child link="tree_13"/>
+            <origin xyz="-21.909516902325343 -8.795126294052562 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_14">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 0.9339547407303398" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.8679094814606796" radius="0.2191102225624131"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 0.9339547407303398" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.8679094814606796" radius="0.2191102225624131"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 2.306129926585506" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.4382204451248262"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 2.306129926585506" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.4382204451248262"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.372175185855166" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.24004644815675102" ixy="0" ixz="0" iyy="0.24004644815675102" iyz="0" izz="0.48009289631350205"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_14" type="fixed">
+            <parent link="root"/>
+            <child link="tree_14"/>
+            <origin xyz="-3.8532801192348707 6.098471255350685 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_15">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 0.9713569590029725" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.942713918005945" radius="0.2901567801292813"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 0.9713569590029725" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.942713918005945" radius="0.2901567801292813"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 2.5230274782645075" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.5803135602585626"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 2.5230274782645075" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.5803135602585626"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.5516705192615352" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.42095478527496044" ixy="0" ixz="0" iyy="0.42095478527496044" iyz="0" izz="0.8419095705499209"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_15" type="fixed">
+            <parent link="root"/>
+            <child link="tree_15"/>
+            <origin xyz="14.52642576865022 12.274399134236205 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_16">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 0.7975892709529938" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.5951785419059876" radius="0.416296951722987"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 0.7975892709529938" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.5951785419059876" radius="0.416296951722987"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 2.4277724453519616" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.832593903445974"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 2.4277724453519616" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.832593903445974"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.6301831743989679" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.8665157600692547" ixy="0" ixz="0" iyy="0.8665157600692547" iyz="0" izz="1.7330315201385094"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_16" type="fixed">
+            <parent link="root"/>
+            <child link="tree_16"/>
+            <origin xyz="4.875110886231116 7.656652257982081 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_17">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 1.083940171186259" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.167880342372518" radius="0.22924950329651939"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 1.083940171186259" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.167880342372518" radius="0.22924950329651939"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 2.626379348965557" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.45849900659303877"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 2.626379348965557" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.45849900659303877"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.5424391777792978" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.2627766738085042" ixy="0" ixz="0" iyy="0.2627766738085042" iyz="0" izz="0.5255533476170084"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_17" type="fixed">
+            <parent link="root"/>
+            <child link="tree_17"/>
+            <origin xyz="15.76789597002022 -16.71995346962313 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_18">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 1.3385872490837205" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.677174498167441" radius="0.3004334880589909"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 1.3385872490837205" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.677174498167441" radius="0.3004334880589909"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 3.278041474285423" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.6008669761179818"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 3.278041474285423" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.6008669761179818"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.9394542252017022" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.4513014037364591" ixy="0" ixz="0" iyy="0.4513014037364591" iyz="0" izz="0.9026028074729182"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_18" type="fixed">
+            <parent link="root"/>
+            <child link="tree_18"/>
+            <origin xyz="9.533196043748127 15.678574215878385 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_19">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 1.3788669756897391" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.7577339513794783" radius="0.422962421521243"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 1.3788669756897391" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.7577339513794783" radius="0.422962421521243"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 3.6036587944219645" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.845924843042486"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 3.6036587944219645" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.845924843042486"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 2.2247918187322253" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.8944860500955683" ixy="0" ixz="0" iyy="0.8944860500955683" iyz="0" izz="1.7889721001911365"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_19" type="fixed">
+            <parent link="root"/>
+            <child link="tree_19"/>
+            <origin xyz="10.774673993805244 18.239205945886717 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_20">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 0.8187969789637661" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.6375939579275323" radius="0.4841670340938306"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 0.8187969789637661" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.6375939579275323" radius="0.4841670340938306"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 2.6059280261151936" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.9683340681876612"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 2.6059280261151936" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.9683340681876612"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.7871310471514272" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="1.1720885845160827" ixy="0" ixz="0" iyy="1.1720885845160827" iyz="0" izz="2.3441771690321653"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_20" type="fixed">
+            <parent link="root"/>
+            <child link="tree_20"/>
+            <origin xyz="-12.776480418352465 -1.4035658095732764 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_21">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 1.097484254762103" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.194968509524206" radius="0.20450316862984513"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 1.097484254762103" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="2.194968509524206" radius="0.20450316862984513"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 2.6039748467838963" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.40900633725969027"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 2.6039748467838963" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.40900633725969027"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.5064905920217933" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.20910772989823437" ixy="0" ixz="0" iyy="0.20910772989823437" iyz="0" izz="0.41821545979646874"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_21" type="fixed">
+            <parent link="root"/>
+            <child link="tree_21"/>
+            <origin xyz="-0.8329400264379956 17.232570219018108 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_22">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 0.9802199762995182" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.9604399525990364" radius="0.3214256730804615"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 0.9802199762995182" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.9604399525990364" radius="0.3214256730804615"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 2.6032912987599595" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.642851346160923"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 2.6032912987599595" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.642851346160923"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.6230713224604412" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.5165723165761386" ixy="0" ixz="0" iyy="0.5165723165761386" iyz="0" izz="1.0331446331522771"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_22" type="fixed">
+            <parent link="root"/>
+            <child link="tree_22"/>
+            <origin xyz="9.802994594227172 10.112671716420621 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_23">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 0.9696196202611406" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.9392392405222811" radius="0.37329918082863556"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 0.9696196202611406" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.9392392405222811" radius="0.37329918082863556"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 2.6858376021795523" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.7465983616572711"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 2.6858376021795523" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.7465983616572711"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.7162179819184118" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.6967613920366518" ixy="0" ixz="0" iyy="0.6967613920366518" iyz="0" izz="1.3935227840733035"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_23" type="fixed">
+            <parent link="root"/>
+            <child link="tree_23"/>
+            <origin xyz="-7.88849509444497 18.72940134153054 0" rpy="0 0 0"/>
+        </joint>
+    
+        <link name="tree_24">
+            <!-- Trunk (cylinder) -->
+            <collision name="trunk_collision">
+                <origin xyz="0 0 0.507334753423716" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.014669506847432" radius="0.2855880070839108"/>
+                </geometry>
+            </collision>
+            <visual name="trunk_visual">
+                <origin xyz="0 0 0.507334753423716" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.014669506847432" radius="0.2855880070839108"/>
+                </geometry>
+                <material name="brown">
+                    <color rgba="0.545 0.271 0.075 1.0"/> <!-- Brown color -->
+                </material>
+            </visual>
+            
+            <!-- Foliage (sphere) -->
+            <collision name="foliage_collision">
+                <origin xyz="0 0 1.5858455210152536" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.5711760141678216"/>
+                </geometry>
+            </collision>
+            <visual name="foliage_visual">
+                <origin xyz="0 0 1.5858455210152536" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.5711760141678216"/>
+                </geometry>
+                <material name="dark_green">
+                    <color rgba="0 0.5 0 1.0"/> <!-- Dark green color -->
+                </material>
+            </visual>
+
+            <inertial>
+                <origin xyz="0 0 1.0785107675915375" rpy="0 0 0"/>
+                <mass value="10"/> <!-- Using the trunk mass for the whole tree, but this can be refined further -->
+                <inertia ixx="0.4078025489507994" ixy="0" ixz="0" iyy="0.4078025489507994" iyz="0" izz="0.8156050979015989"/>
+            </inertial>
+        </link>
+    
+        <joint name="joint_tree_24" type="fixed">
+            <parent link="root"/>
+            <child link="tree_24"/>
+            <origin xyz="3.07096615270331 24.06003439702696 0" rpy="0 0 0"/>
+        </joint>
+    </robot>
