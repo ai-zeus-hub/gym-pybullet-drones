@@ -190,7 +190,6 @@ class BaseRLAviary(BaseAviary):
             commanded to the 4 motors of each drone.
 
         """
-        # action = np.reshape(action, (self.NUM_DRONES, 4))  # todo: ajr - not generic and hacky
         self.action_buffer.append(action)
         rpm = np.zeros((self.NUM_DRONES,4))
         for k in range(action.shape[0]):

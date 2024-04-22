@@ -82,7 +82,6 @@ def polygon_trajectory(control_freq_hz, period=6, height=1.0, radius=1.0, n_side
             waypoint = (1 - t) * start_vertex + t * end_vertex
             waypoints[i * num_wp_per_side + j, :2] = waypoint
             waypoints[i * num_wp_per_side + j, 2] = height
-
     neg_wp_0 = -waypoints[0, :2]
     for i in range(len(waypoints)):
         waypoints[i, :2] = waypoints[i, :2] + neg_wp_0
@@ -91,7 +90,6 @@ def polygon_trajectory(control_freq_hz, period=6, height=1.0, radius=1.0, n_side
 
 class TrackAviary(BaseRLAviary):
     def __init__(self,
-                 drone_model: DroneModel = DroneModel.CF2X,
                  physics: Physics = Physics.PYB,
                  output_folder: str = 'results',
                  pyb_freq: int = 120,
@@ -103,10 +101,11 @@ class TrackAviary(BaseRLAviary):
                  episode_len: int = 8,
                  distance_reward_scale: float = 1.2,
                  depth_type: DepthType = DepthType.IMAGE,
-                 max_distance: float = 1.,
+                 max_distance: float = 2.,
                  include_rpos_in_obs: bool = False,
                  static_idx: int | None = None,
                  ):
+        drone_model = DroneModel.CF2X
         self.include_rpos_in_obs = include_rpos_in_obs
         self.EPISODE_LEN_SEC = episode_len
 
@@ -317,6 +316,7 @@ class TrackAviary(BaseRLAviary):
             Whether the current episode is done.
 
         """
+        return False
         state = self._getDroneStateVector(0)
         target_pos, target_rpy = self._target_waypoint()
         total_dist, x_dist, y_dist, z_dist = self._distance_from_next_target(target_pos)
@@ -359,6 +359,7 @@ class TrackAviary(BaseRLAviary):
             Dummy value.
 
         """
+        return {}
         target_pos, target_rpy = self._target_waypoint()
         total_distance, x_dist, y_dist, z_dist = self._distance_from_next_target(target_pos)
         return {"answer": 42,
@@ -538,13 +539,18 @@ class TrackAviary(BaseRLAviary):
         if not self.add_shapes:
             return
         if self.env_idx == 0:
-            self.add_cylinder((-0.45, -0.25, 0))
-            self.add_cylinder((-0.45, +0.25, 0))
-            self.add_cylinder((-1.3, +0.15, 0))
-            self.add_cylinder((+0.5, 0, 0))
+            self.add_cylinder((+0.0, +0.25, 0))
+            self.add_cylinder((+0.25, -0.5, 0))
+            self.add_cylinder((+0.0, -0.5, 0))
+            self.add_cylinder((+0.0, -0.25, 0))
+            self.add_cylinder((+0.0, -0.75, 0))
+            self.add_cylinder((+0.0, -1.25, 0))
+            self.add_cylinder((-0.25, -0.5, 0))
         elif self.env_idx == 3:
+            self.add_cylinder((-0.45, -0.95, 0))
             self.add_cylinder((-0.45, +0, 0))
             self.add_cylinder((+0.45, +0, 0))
+            self.add_cylinder((-0.45, +0.95, 0))
             self.add_cylinder((-1.1, 0, 0))
         elif self.env_idx == 4:
             self.add_cylinder((-0.45, -0.75, 0))
@@ -554,10 +560,12 @@ class TrackAviary(BaseRLAviary):
             self.add_cylinder((-1.3, +0.15, 0))
             self.add_cylinder((+0.5, 0, 0))
         elif self.env_idx == 5:
-            self.add_cylinder((-0.45, -0.75, 0))
+            self.add_cylinder((-0.45, -0.95, 0))
+            self.add_cylinder((-0.35, -0.25, 0))
             self.add_cylinder((-0.45, -0.25, 0))
             self.add_cylinder((-0.45, +0.25, 0))
-            self.add_cylinder((-0.45, +0.75, 0))
+            self.add_cylinder((-0.45, +0.95, 0))
+            self.add_cylinder((-0.75, +0.95, 0))
             self.add_cylinder((-1.3, +0.15, 0))
             self.add_cylinder((+0.5, 0, 0))
         elif self.env_idx == 6:

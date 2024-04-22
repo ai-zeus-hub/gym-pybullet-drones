@@ -4,30 +4,31 @@ import numpy as np
 from pathlib import Path
 
 from stable_baselines3 import PPO, DQN
-from stable_baselines3.common.policies import NatureCNN
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnRewardThreshold
 from stable_baselines3.common.evaluation import evaluate_policy
+
+from stable_baselines3.common.torch_layers import NatureCNN
 
 from gym_pybullet_drones.utils.Logger import Logger
 from gym_pybullet_drones.envs.TrackAviary import TrackAviary
 from gym_pybullet_drones.utils.utils import sync, str2bool
 from gym_pybullet_drones.utils.enums import ObservationType, ActionType, DepthType
 
-from gym_pybullet_drones.bullet_track.bullet_track_extractor import BulletTrackCombinedExtractor, BulletTrackEfficientNet, TransformerExtractor, BulletTrackYOLO, BulletTrackCombinedExtractor
+from gym_pybullet_drones.bullet_track.bullet_track_extractor import NatureCNN, BulletTrackCombinedExtractor, BulletTrackEfficientNet, TransformerExtractor, BulletTrackYOLO, BulletTrackCombinedExtractor
 from gym_pybullet_drones.bullet_track.bullet_track_policy import BulletTrackPolicy
 
 DEFAULT_DEPTH_TYPE = DepthType.IMAGE
 DEFAULT_GUI = True
 DEFAULT_RECORD_VIDEO = True
-DEFAULT_OUTPUT_FOLDER = Path('final_results')
+DEFAULT_OUTPUT_FOLDER = Path('final_results_2')
 DEFAULT_SAVE_EVAL_IMAGE = True
 DEFAULT_RL_ALGO = "PPO"
 DEFAULT_PRETRAINED_PATH = Path()
 DEFAULT_EPISODE_LEN = 8  # usually 8
 MAX_LR = 0.0005
 DEFAULT_IMAGE_EXTRACTOR = NatureCNN
-DEFAULT_FEATURE_EXTRACTOR = TransformerExtractor
+DEFAULT_FEATURE_EXTRACTOR = BulletTrackCombinedExtractor
 DEFAULT_CNN_DIMS = 3
 
 DEFAULT_OBS = ObservationType.RGB
@@ -61,9 +62,14 @@ def constant_lr_schedule(remaining_percent: float) -> float:
 # TODO: rename script
 # TODO: parameterize obstacles
 # TODO: parameterize other config options
-def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAULT_GUI,
-        save_eval_image=DEFAULT_SAVE_EVAL_IMAGE, record_video=DEFAULT_RECORD_VIDEO,
-        pretrained=DEFAULT_PRETRAINED_PATH, super_mode=DEFAULT_SUPER_MODE, episode_len=DEFAULT_EPISODE_LEN):
+def run(output_folder=DEFAULT_OUTPUT_FOLDER,
+        rl_algo=DEFAULT_RL_ALGO,
+        gui=DEFAULT_GUI,
+        save_eval_image=DEFAULT_SAVE_EVAL_IMAGE,
+        record_video=DEFAULT_RECORD_VIDEO,
+        pretrained=DEFAULT_PRETRAINED_PATH,
+        super_mode=DEFAULT_SUPER_MODE,
+        episode_len=DEFAULT_EPISODE_LEN):
     action_str = str(DEFAULT_ACT).split('.')[1]
     if DEFAULT_OBS == ObservationType.MULTI:
         obs_str = "RGBD-Kinematics"
@@ -176,23 +182,25 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER, rl_algo=DEFAULT_RL_ALGO, gui=DEFAUL
     model = PPO.load(path)
 
     #### Show (and record a video of) the model's performance ##
+    idx = 6
     test_env = TrackAviary(gui=gui, obs=DEFAULT_OBS, act=DEFAULT_ACT, episode_len=episode_len,
                            record=record_video, include_rpos_in_obs=super_mode, output_folder=filename,
-                           static_idx=6)
+                           static_idx=idx)
     test_env_nogui = TrackAviary(obs=DEFAULT_OBS, act=DEFAULT_ACT,
                                  episode_len=episode_len, include_rpos_in_obs=super_mode, output_folder=filename,
-                                 static_idx=6)
+                                 static_idx=idx)
     logger = Logger(logging_freq_hz=int(test_env.CTRL_FREQ), num_drones=1,
                     output_folder=str(output_folder), colab=save_eval_image)
 
-    # mean_reward, std_reward = evaluate_policy(model, test_env_nogui, n_eval_episodes=10)
-    # print("\n\n\nMean reward ", mean_reward, " +- ", std_reward, "\n\n")
+    mean_reward, std_reward = evaluate_policy(model, test_env_nogui, n_eval_episodes=10)
+    print("\n\n\nMean reward ", mean_reward, " +- ", std_reward, "\n\n")
 
     obs, info = test_env.reset(seed=42, options={})
     start = time.time()
     for i in range((test_env.EPISODE_LEN_SEC+2)*test_env.CTRL_FREQ):
         action, _states = model.predict(obs, deterministic=True)
         obs, reward, terminated, truncated, info = test_env.step(action)
+
         # print("Obs:", obs, "\tAction", action, "\tReward:", reward, "\tTerminated:", terminated, "\tTruncated:", truncated)
         logger.log(drone=0,
             timestamp=i/test_env.CTRL_FREQ,
