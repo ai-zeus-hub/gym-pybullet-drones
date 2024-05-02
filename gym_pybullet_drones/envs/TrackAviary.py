@@ -362,7 +362,6 @@ class TrackAviary(BaseRLAviary):
             Dummy value.
 
         """
-        return {}
         target_pos, target_rpy = self._target_waypoint()
         total_distance, x_dist, y_dist, z_dist = self._distance_from_next_target(target_pos)
         return {"answer": 42,
