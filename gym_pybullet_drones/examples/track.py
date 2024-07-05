@@ -21,7 +21,7 @@ from gym_pybullet_drones.bullet_track.bullet_track_policy import BulletTrackPoli
 DEFAULT_DEPTH_TYPE = DepthType.IMAGE
 DEFAULT_GUI = True
 DEFAULT_RECORD_VIDEO = True
-DEFAULT_OUTPUT_FOLDER = Path('final_results_2')
+DEFAULT_OUTPUT_FOLDER = Path('results')
 DEFAULT_SAVE_EVAL_IMAGE = True
 DEFAULT_RL_ALGO = "PPO"
 DEFAULT_PRETRAINED_PATH = Path()
@@ -58,10 +58,6 @@ def constant_lr_schedule(remaining_percent: float) -> float:
     return MAX_LR
 
 
-# TODO: parameterize number environments
-# TODO: rename script
-# TODO: parameterize obstacles
-# TODO: parameterize other config options
 def run(output_folder=DEFAULT_OUTPUT_FOLDER,
         rl_algo=DEFAULT_RL_ALGO,
         gui=DEFAULT_GUI,
@@ -94,7 +90,7 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER,
                                              episode_len=episode_len,
                                              include_rpos_in_obs=super_mode,
                                              output_folder=filename),
-                             n_envs=2)
+                             n_envs=4)
     eval_env = TrackAviary(obs=DEFAULT_OBS,
                            act=DEFAULT_ACT,
                            episode_len=episode_len,
@@ -200,8 +196,6 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER,
     for i in range((test_env.EPISODE_LEN_SEC+2)*test_env.CTRL_FREQ):
         action, _states = model.predict(obs, deterministic=True)
         obs, reward, terminated, truncated, info = test_env.step(action)
-
-        # print("Obs:", obs, "\tAction", action, "\tReward:", reward, "\tTerminated:", terminated, "\tTruncated:", truncated)
         logger.log(drone=0,
             timestamp=i/test_env.CTRL_FREQ,
             state=test_env._getDroneStateVector(0),
@@ -218,15 +212,14 @@ def run(output_folder=DEFAULT_OUTPUT_FOLDER,
     logger.plot(output_folder=filename)
 
 if __name__ == '__main__':
-    #### Define and parse (optional) arguments for the script ##
     parser = argparse.ArgumentParser(description='Single agent reinforcement learning example script')
     parser.add_argument('--gui',             default=DEFAULT_GUI,             type=str2bool, help='Whether to use PyBullet GUI (default: True)', metavar='')
     parser.add_argument('--record_video',    default=DEFAULT_RECORD_VIDEO,    type=str2bool, help='Whether to record a video (default: False)', metavar='')
     parser.add_argument('--output_folder',   default=DEFAULT_OUTPUT_FOLDER,   type=Path,     help='Folder where to save logs (default: "results")', metavar='')
-    parser.add_argument('--rl-algo',         default=DEFAULT_RL_ALGO,         type=str,      help='Folder where to save logs (default: "results")', metavar='')
-    parser.add_argument('--pretrained',      default=DEFAULT_PRETRAINED_PATH, type=Path,     help='Folder where to save logs (default: "results")', metavar='')
-    parser.add_argument('--super-mode',      default=DEFAULT_SUPER_MODE,      type=str2bool, help='Whether example is being run by a notebook (default: "False")', metavar='')
-    parser.add_argument('--save-eval-image', default=DEFAULT_SAVE_EVAL_IMAGE, type=bool,     help='Whether example is being run by a notebook (default: "False")', metavar='')
+    parser.add_argument('--rl-algo',         default=DEFAULT_RL_ALGO,         type=str,      help='RL Algorithm to use. Currently PPO is supported', metavar='')
+    parser.add_argument('--pretrained',      default=DEFAULT_PRETRAINED_PATH, type=Path,     help='Pretrain pytorch model path', metavar='')
+    parser.add_argument('--super-mode',      default=DEFAULT_SUPER_MODE,      type=str2bool, help='If position should be included in the observation', metavar='')
+    parser.add_argument('--save-eval-image', default=DEFAULT_SAVE_EVAL_IMAGE, type=bool,     help='If eval images should be saved to the output folder', metavar='')
     ARGS = parser.parse_args()
 
     run(**vars(ARGS))
